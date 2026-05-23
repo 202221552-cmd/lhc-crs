@@ -1,0 +1,421 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// Phase 9: User Management & Security
+// ==========================================
+
+model User {
+  id                String @id @default(uuid())
+  username          String @unique
+  passwordHash      String
+  fullName          String
+  role              String @default("EMPLOYEE") // "ADMIN" | "EMPLOYEE"
+  status            String @default("ACTIVE") // "ACTIVE" | "INACTIVE"
+  maxDevicesAllowed Int    @default(3)
+
+  permissions   UserPermission[]
+  auditLogs     AuditLog[]
+  loginSessions LoginSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  name        String  @unique // dot-notation: "students.view", "finance.receipts", "ADMIN_ALL"
+  description String?
+
+  users UserPermission[]
+}
+
+model UserPermission {
+  id           String @id @default(uuid())
+  userId       String
+  permissionId String
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+}
+
+model AuditLog {
+  id         String  @id @default(uuid())
+  userId     String
+  action     String // "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT" | "PAY"
+  entity     String // e.g., "Student", "Installment"
+  details    String // JSON string
+  ipAddress  String?
+  deviceType String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model LoginSession {
+  id         String   @id @default(uuid())
+  userId     String
+  token      String   @unique
+  ipAddress  String?
+  deviceType String?
+  status     String   @default("ACTIVE") // "ACTIVE" | "REVOKED"
+  lastActive DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// ==========================================
+// Phase 1: Educational Entities & Resources
+// ==========================================
+
+model EducationalEntity {
+  id            String @id @default(uuid())
+  name          String
+  type          String // "UNIVERSITY" | "INSTITUTE" | "ACADEMY"
+  status        String @default("ACTIVE")
+  uniPercentage Float  @default(0)
+  fixedAmount   Float  @default(0)
+  contactPhone  String?
+  notes         String?
+
+  rooms       Room[]
+  diplomaSubs DiplomaSubscription[]
+  courseSubs  CourseSubscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Room {
+  id       String @id @default(uuid())
+  name     String
+  type     String // "ROOM" | "LAB" | "VIRTUAL"
+  capacity Int    @default(30)
+
+  entityId String?
+  entity   EducationalEntity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+
+  sections Section[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Instructor {
+  id             String  @id @default(uuid())
+  name           String
+  specialization String?
+  phone          String?
+  type           String // "INTERNAL" | "EXTERNAL"
+  status         String  @default("ACTIVE")
+
+  sections Section[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Phase 1: Courses & Diplomas
+// ==========================================
+
+model Course {
+  id          String  @id @default(uuid())
+  name        String
+  category    String // "COMPUTER" | "MANAGEMENT" | "LANGUAGES" | "FINANCE" | "OTHER"
+  hours       Int     @default(0)
+  price       Float   @default(0)
+  duration    String?
+  description String?
+  status      String  @default("ACTIVE")
+
+  diplomas      DiplomaCourse[]
+  sections      Section[]
+  requestedBy   RequestedCourse[]
+  subscriptions CourseSubscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Diploma {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  totalHours  Int     @default(0)
+  totalPrice  Float   @default(0)
+  category    String?
+  status      String  @default("ACTIVE")
+
+  courses       DiplomaCourse[]
+  subscriptions DiplomaSubscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DiplomaCourse {
+  id        String @id @default(uuid())
+  diplomaId String
+  courseId  String
+  order     Int    @default(0)
+
+  diploma Diploma @relation(fields: [diplomaId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([diplomaId, courseId])
+}
+
+// ==========================================
+// Phase 2: Sections & Schedules
+// ==========================================
+
+model Section {
+  id           String    @id @default(uuid())
+  name         String?
+  courseId     String
+  roomId       String
+  instructorId String
+  days         String // JSON string: '["SAT","MON","WED"]'
+  startTime    String // "17:00"
+  endTime      String // "19:00"
+  startDate    DateTime?
+  endDate      DateTime?
+  capacity     Int       @default(30)
+  status       String    @default("OPEN") // "OPEN" | "CLOSED" | "COMPLETED"
+
+  course     Course     @relation(fields: [courseId], references: [id])
+  room       Room       @relation(fields: [roomId], references: [id])
+  instructor Instructor @relation(fields: [instructorId], references: [id])
+
+  students    StudentSection[]
+  attendances Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Phase 3 & 4: Students & Requests
+// ==========================================
+
+model Student {
+  id             String   @id @default(uuid())
+  fullNameAr     String
+  fullNameEn     String?
+  dob            DateTime
+  nationality    String   @default("JO")
+  nationalId     String?
+  passportId     String?
+  phones         String   @default("[]") // JSON stringified array
+  whatsappOnly   String   @default("[]") // JSON stringified array
+  address        String?
+  studentType    String   @default("UNIVERSITY") // "UNIVERSITY"|"HIGH_SCHOOL"|"EMPLOYEE"|"OTHER"
+  universityName String?
+  universityId   String?
+  status         String   @default("ACTIVE") // "ACTIVE"|"POSTPONED"|"WITHDRAWN"|"CANCELED"|"FINISHED"
+  marketerName   String?
+  notes          String?
+
+  registrationDate DateTime @default(now())
+
+  diplomaSubscriptions  DiplomaSubscription[]
+  courseSubscriptions   CourseSubscription[]
+  requestedCourses      RequestedCourse[]
+  sections              StudentSection[]
+  attendances           Attendance[]
+  financialTransactions FinancialTransaction[]
+  installments          Installment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DiplomaSubscription {
+  id        String  @id @default(uuid())
+  studentId String
+  diplomaId String
+  entityId  String?
+  studyType String  @default("FACE_TO_FACE") // "FACE_TO_FACE" | "HYBRID" | "ONLINE"
+
+  // Financials
+  baseFee       Float   @default(0)
+  hasTransport  Boolean @default(false)
+  transportFee  Float   @default(0)
+  hasSupplies   Boolean @default(false)
+  suppliesFee   Float   @default(0)
+  discountType  String  @default("NONE") // "NONE" | "FIXED" | "PERCENTAGE"
+  discountValue Float   @default(0)
+  totalCost     Float   @default(0)
+
+  // Installment plan
+  paymentType       String @default("FULL") // "FULL" | "INSTALLMENT"
+  installmentsCount Int    @default(1)
+
+  date   DateTime @default(now())
+  status String   @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "CANCELED"
+  notes  String?
+
+  student Student            @relation(fields: [studentId], references: [id])
+  diploma Diploma            @relation(fields: [diplomaId], references: [id])
+  entity  EducationalEntity? @relation(fields: [entityId], references: [id])
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CourseSubscription {
+  id        String  @id @default(uuid())
+  studentId String
+  courseId  String
+  entityId  String?
+  studyType String  @default("FACE_TO_FACE")
+
+  // Financials
+  baseFee       Float   @default(0)
+  hasTransport  Boolean @default(false)
+  transportFee  Float   @default(0)
+  hasSupplies   Boolean @default(false)
+  suppliesFee   Float   @default(0)
+  discountType  String  @default("NONE")
+  discountValue Float   @default(0)
+  totalCost     Float   @default(0)
+
+  // Installment plan
+  paymentType       String @default("FULL") // "FULL" | "INSTALLMENT"
+  installmentsCount Int    @default(1)
+
+  date   DateTime @default(now())
+  status String   @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "CANCELED"
+  notes  String?
+
+  student Student            @relation(fields: [studentId], references: [id])
+  course  Course             @relation(fields: [courseId], references: [id])
+  entity  EducationalEntity? @relation(fields: [entityId], references: [id])
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RequestedCourse {
+  id        String @id @default(uuid())
+  studentId String
+  courseId  String
+  status    String @default("PENDING") // "PENDING" | "ASSIGNED"
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, courseId])
+}
+
+// ==========================================
+// Phase 5: Student in Section
+// ==========================================
+
+model StudentSection {
+  id         String   @id @default(uuid())
+  studentId  String
+  sectionId  String
+  enrollDate DateTime @default(now())
+  status     String   @default("ENROLLED") // "ENROLLED" | "WITHDRAWN" | "COMPLETED"
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, sectionId])
+}
+
+// ==========================================
+// Phase 6: Attendance
+// ==========================================
+
+model Attendance {
+  id        String   @id @default(uuid())
+  sectionId String
+  studentId String
+  date      DateTime
+  status    String // "PRESENT" | "ABSENT" | "LATE" | "EXCUSED"
+  notes     String?
+
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sectionId, studentId, date])
+}
+
+// ==========================================
+// Phase 7: Finances
+// ==========================================
+
+model FinancialTransaction {
+  id               String   @id @default(uuid())
+  studentId        String
+  subscriptionId   String?
+  subscriptionType String?  // "DIPLOMA" | "COURSE"
+  installmentId    String?  // optional link to an Installment
+  type             String   // "RECEIPT" | "PAYMENT" | "ADJUSTMENT"
+  amount           Float
+  paymentMethod    String   @default("CASH") // "CASH" | "BANK" | "CARD" | "TRANSFER"
+  date             DateTime @default(now())
+  status           String   @default("COMPLETED") // "COMPLETED" | "VOIDED"
+  receiptNumber    Int      @default(0) // auto-assigned by backend
+
+  // Revenue split
+  universityShare Float @default(0)
+  centerShare     Float @default(0)
+  commission      Float @default(0)
+
+  notes     String?
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Phase 8: Installments (Payment Schedule)
+// ==========================================
+
+model Installment {
+  id                   String    @id @default(uuid())
+  studentId            String
+  subscriptionId       String    // raw ID reference (no FK enforced by Prisma)
+  subscriptionType     String    // "DIPLOMA" | "COURSE"
+  installmentNumber    Int       @default(1)
+  totalInstallments    Int       @default(1)
+  dueDate              DateTime
+  amount               Float
+  paidAmount           Float     @default(0)
+  remainingAmount      Float     @default(0)
+  status               String    @default("PENDING") // "PENDING"|"PAID"|"PARTIAL"|"OVERDUE"
+  paymentDate          DateTime?
+  paymentMethod        String?   // "CASH"|"BANK"|"CARD"|"TRANSFER"
+  notes                String?
+
+  // Only FK enforced: student
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

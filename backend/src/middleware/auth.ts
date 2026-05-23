@@ -1,0 +1,56 @@
+import { Request, Response, NextFunction } from 'express';
+import { prisma } from '../index';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'ems-super-secret-2026';
+
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'غير مصرح: يرجى تسجيل الدخول' });
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, JWT_SECRET); // throws if invalid
+
+    const session = await prisma.loginSession.findUnique({
+      where: { token },
+      include: { user: { include: { permissions: { include: { permission: true } } } } }
+    });
+
+    if (!session || session.status === 'REVOKED') {
+      return res.status(401).json({ error: 'الجلسة منتهية. يرجى تسجيل الدخول مجدداً.' });
+    }
+    if (session.user.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'تم تعطيل هذا الحساب.' });
+    }
+
+    // Update lastActive async (don't block)
+    prisma.loginSession.update({
+      where: { id: session.id },
+      data: { lastActive: new Date() }
+    }).catch(() => {});
+
+    (req as any).user = session.user;
+    (req as any).token = token;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'غير مصرح: رمز غير صالح' });
+  }
+};
+
+export const requirePermission = (permissionName: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'غير مصرح' });
+
+    const permKeys = user.permissions.map((p: any) => p.permission.name);
+    // ADMIN_ALL grants everything
+    const hasIt = permKeys.includes('ADMIN_ALL') || permKeys.includes(permissionName) || user.role === 'ADMIN';
+
+    if (!hasIt) {
+      return res.status(403).json({ error: `ليس لديك صلاحية: ${permissionName}` });
+    }
+    next();
+  };
+};
