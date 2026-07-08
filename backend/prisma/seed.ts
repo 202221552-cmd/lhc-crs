@@ -55,7 +55,7 @@ async function main() {
   console.log(`✓ ${ALL_PERMISSIONS.length} permissions created`);
 
   // 2. Admin user
-  const adminHash = await bcrypt.hash('102030.55', 10);
+  const adminHash = await bcrypt.hash('102030.00', 10);
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
     update: { passwordHash: adminHash, status: 'ACTIVE', role: 'ADMIN' },
@@ -68,7 +68,7 @@ async function main() {
       update: {}, create: { userId: admin.id, permissionId: perm.id },
     });
   }
-  console.log(`✓ Admin: admin / 102030.55`);
+  console.log(`✓ Admin: admin / 102030.00`);
 
   // 3. Registrar user
   const regHash = await bcrypt.hash('123456', 10);
@@ -198,7 +198,7 @@ async function main() {
     });
   }
   console.log(`✓ 4 portal backgrounds initialized`);
-  console.log('\n✅ Seeding complete!\n  admin / 102030.55\n  registrar / 123456\n');
+  console.log('\n✅ Seeding complete!\n  admin / 102030.00\n  registrar / 123456\n');
 }
 
 main()
