@@ -7,9 +7,12 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, requirePermission } from '../middleware/auth.js';
+import { fileURLToPath } from 'url';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'ems-super-secret-2026';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PROFILES_DIR = path.resolve(__dirname, '..', '..', 'uploads', 'profiles');
 if (!fs.existsSync(PROFILES_DIR)) fs.mkdirSync(PROFILES_DIR, { recursive: true });

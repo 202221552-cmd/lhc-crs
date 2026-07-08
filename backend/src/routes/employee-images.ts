@@ -5,8 +5,12 @@ import fs from 'fs';
 import { prisma } from '../index.js';
 import { authMiddleware, requirePermission } from '../middleware/auth.js';
 import { compressImageBuffer } from '../utils/imageCompress.js';
+import { fileURLToPath } from 'url';
 
 const router = express.Router();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const UPLOADS_DIR = path.resolve(__dirname, '..', '..', 'uploads');
 const EMPLOYEES_DIR = path.join(UPLOADS_DIR, 'employees');
