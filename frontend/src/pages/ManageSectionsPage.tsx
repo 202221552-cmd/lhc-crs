@@ -197,15 +197,18 @@ export const ManageSectionsPage = () => {
   }, [courses, filterDiplomaId, filterCategoryId, diplomaCourseIds]);
 
   /* ─────────────── Filter ─────────────── */
-  const filtered = sections.filter(s =>
-    (!query ||
-      (s.course?.name || '').includes(query) ||
-      (s.instructor?.name || '').includes(query) ||
-      (s.room?.name || '').includes(query)) &&
-    (!filterCourseId || s.courseId === filterCourseId) &&
-    (!filterCategoryId || s.course?.categoryId === Number(filterCategoryId)) &&
-    (!filterDiplomaId || diplomaCourseIds.has(s.courseId))
-  );
+  const filtered = sections.filter(s => {
+    if (query) {
+      const q = query.toLowerCase();
+      if (!(s.course?.name || '').toLowerCase().includes(q) &&
+          !(s.instructor?.name || '').toLowerCase().includes(q) &&
+          !(s.room?.name || '').toLowerCase().includes(q)) return false;
+    }
+    if (filterCourseId && s.courseId !== filterCourseId) return false;
+    if (filterCategoryId && s.course?.categoryId !== Number(filterCategoryId)) return false;
+    if (filterDiplomaId && !diplomaCourseIds.has(s.courseId)) return false;
+    return true;
+  });
 
   /* ── Auto-set section name when course changes ── */
   const handleCourseChange = (courseId: string) => {
@@ -255,10 +258,18 @@ export const ManageSectionsPage = () => {
                 .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="search-bar" style={{ flex: 2, minWidth: 200 }}>
+          <div className="search-bar" style={{ flex: 2, minWidth: 200, position: 'relative' }}>
             <Search className="search-icon" size={17}/>
             <input type="text" className="glass-input" placeholder="بحث بالدورة أو المحاضر أو القاعة..."
-              value={query} onChange={e => setQuery(e.target.value)} />
+              value={query} onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Escape' && setQuery('')}
+              style={{ paddingLeft: query ? 32 : 12 }} />
+            {query && (
+              <button onClick={() => setQuery('')} style={{
+                position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2
+              }}><X size={14} /></button>
+            )}
           </div>
         </div>
       </div>

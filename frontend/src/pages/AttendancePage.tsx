@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  UserCheck, Calendar, Search, CheckCircle, XCircle,
+  UserCheck, Calendar, Search, CheckCircle, XCircle, X,
   Clock, AlertCircle, Save, RefreshCw, Printer, BarChart3, ListChecks,
   BookOpen, GraduationCap, ChevronLeft, Users, Lock, Unlock
 } from 'lucide-react';
@@ -269,13 +269,16 @@ export const AttendancePage = () => {
   const absentCount = Object.values(statuses).filter(s => s === 'ABSENT').length;
   const lateCount = Object.values(statuses).filter(s => s === 'LATE').length;
 
-  const filteredStudents = students.filter(st =>
-    st.fullName.includes(searchQ) || (st.studentCode || '').includes(searchQ)
-  );
+  const filteredStudents = students.filter(st => {
+    if (!searchQ) return true;
+    const q = searchQ.toLowerCase();
+    return st.fullName.toLowerCase().includes(q) || (st.studentCode || '').toLowerCase().includes(q);
+  });
 
-  const filteredSummary = summaryStudents.filter(st =>
-    st.fullName.includes(searchQ)
-  );
+  const filteredSummary = summaryStudents.filter(st => {
+    if (!searchQ) return true;
+    return st.fullName.toLowerCase().includes(searchQ.toLowerCase());
+  });
 
   const handlePrint = () => window.print();
 
@@ -555,10 +558,18 @@ export const AttendancePage = () => {
               )}
 
               <div style={{ marginBottom: 12 }}>
-                <div className="search-bar">
+                <div className="search-bar" style={{ position: 'relative' }}>
                   <Search className="search-icon" size={17} />
                   <input type="text" className="glass-input" placeholder="بحث باسم الطالب أو الرقم..."
-                    value={searchQ} onChange={e => setSearchQ(e.target.value)} />
+                    value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                    onKeyDown={e => e.key === 'Escape' && setSearchQ('')}
+                    style={{ paddingLeft: searchQ ? 32 : 12 }} />
+                  {searchQ && (
+                    <button onClick={() => setSearchQ('')} style={{
+                      position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2
+                    }}><X size={14} /></button>
+                  )}
                 </div>
               </div>
 
@@ -680,10 +691,18 @@ export const AttendancePage = () => {
               </div>
 
               <div style={{ marginBottom: 12 }}>
-                <div className="search-bar">
+                <div className="search-bar" style={{ position: 'relative' }}>
                   <Search className="search-icon" size={17} />
                   <input type="text" className="glass-input" placeholder="ابحث عن طالب..."
-                    value={searchQ} onChange={e => setSearchQ(e.target.value)} />
+                    value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                    onKeyDown={e => e.key === 'Escape' && setSearchQ('')}
+                    style={{ paddingLeft: searchQ ? 32 : 12 }} />
+                  {searchQ && (
+                    <button onClick={() => setSearchQ('')} style={{
+                      position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2
+                    }}><X size={14} /></button>
+                  )}
                 </div>
               </div>
 

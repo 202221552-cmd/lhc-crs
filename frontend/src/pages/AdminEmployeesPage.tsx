@@ -311,14 +311,21 @@ export const AdminEmployeesPage = () => {
 
   // ===== Filters & Pagination =====
   const filteredEmps = employees.filter(e => {
-    const ms = !empSearch || e.fullName.includes(empSearch) || (e.phone || '').includes(empSearch);
-    const mt = !empFilter || e.type === empFilter;
-    return ms && mt;
+    if (empSearch) {
+      const q = empSearch.toLowerCase();
+      if (!e.fullName.toLowerCase().includes(q) && !(e.phone || '').toLowerCase().includes(q)) return false;
+    }
+    if (empFilter && e.type !== empFilter) return false;
+    return true;
   });
   const empPages = Math.max(1, Math.ceil(filteredEmps.length / pageSize));
   const empPaginated = filteredEmps.slice((empPage - 1) * pageSize, empPage * pageSize);
 
-  const filteredIns = instructors.filter(i => !insSearch || i.name.includes(insSearch) || (i.phone || '').includes(insSearch));
+  const filteredIns = instructors.filter(i => {
+    if (!insSearch) return true;
+    const q = insSearch.toLowerCase();
+    return i.name.toLowerCase().includes(q) || (i.phone || '').toLowerCase().includes(q);
+  });
   const insPages = Math.max(1, Math.ceil(filteredIns.length / pageSize));
   const insPaginated = filteredIns.slice((insPage - 1) * pageSize, insPage * pageSize);
 
@@ -738,8 +745,15 @@ export const AdminEmployeesPage = () => {
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ position: 'relative' }}>
                   <Search size={14} style={{ position: 'absolute', right: 10, top: 10, color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                  <input type="text" className="glass-input" style={{ paddingRight: 30, width: 170, fontSize: '0.82rem' }}
-                    placeholder="بحث..." value={empSearch} onChange={e => setEmpSearch(e.target.value)} />
+                  <input type="text" className="glass-input" style={{ paddingRight: 30, paddingLeft: empSearch ? 28 : 10, width: 170, fontSize: '0.82rem' }}
+                    placeholder="بحث..." value={empSearch} onChange={e => setEmpSearch(e.target.value)}
+                    onKeyDown={e => e.key === 'Escape' && setEmpSearch('')} />
+                  {empSearch && (
+                    <button onClick={() => setEmpSearch('')} style={{
+                      position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2
+                    }}><X size={13} /></button>
+                  )}
                 </div>
                 <select className="glass-input" style={{ width: 120, fontSize: '0.82rem' }} value={empFilter} onChange={e => setEmpFilter(e.target.value)}>
                   <option value="">الكل</option>
@@ -818,8 +832,15 @@ export const AdminEmployeesPage = () => {
               <h3 style={{ margin: 0, fontSize: '0.95rem' }}>قائمة المحاضرين <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400 }}>({filteredIns.length})</span></h3>
               <div style={{ position: 'relative' }}>
                 <Search size={14} style={{ position: 'absolute', right: 10, top: 10, color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                <input type="text" className="glass-input" style={{ paddingRight: 30, width: 200, fontSize: '0.82rem' }}
-                  placeholder="بحث بالاسم أو الهاتف..." value={insSearch} onChange={e => setInsSearch(e.target.value)} />
+                <input type="text" className="glass-input" style={{ paddingRight: 30, paddingLeft: insSearch ? 28 : 10, width: 200, fontSize: '0.82rem' }}
+                  placeholder="بحث بالاسم أو الهاتف..." value={insSearch} onChange={e => setInsSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Escape' && setInsSearch('')} />
+                {insSearch && (
+                  <button onClick={() => setInsSearch('')} style={{
+                    position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2
+                  }}><X size={13} /></button>
+                )}
               </div>
             </div>
 

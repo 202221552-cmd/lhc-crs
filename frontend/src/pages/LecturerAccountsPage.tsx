@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   GraduationCap, RefreshCw, DollarSign, CheckCircle, Clock,
   ChevronDown, ChevronUp, Wallet, CreditCard, Search, FileDown,
-  Building2, Phone, Mail, CalendarDays
+  Building2, Phone, Mail, CalendarDays, X
 } from 'lucide-react';
 import { useApi, useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
@@ -34,9 +34,11 @@ export const LecturerAccountsPage = () => {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = lecturers.filter(l =>
-    l.name.includes(searchTerm) || l.specialization?.includes(searchTerm) || l.phone?.includes(searchTerm)
-  );
+  const filtered = lecturers.filter(l => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return l.name.toLowerCase().includes(q) || (l.specialization || '').toLowerCase().includes(q) || (l.phone || '').toLowerCase().includes(q);
+  });
 
   const totalDue = lecturers.reduce((s, l) => s + (l.totalDue || 0), 0);
   const totalPaid = lecturers.reduce((s, l) => s + (l.paidAmount || 0), 0);
@@ -154,13 +156,16 @@ export const LecturerAccountsPage = () => {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
             <Search size={14} style={{ position: 'absolute', right: 10, top: 10, color: 'var(--text-muted)' }} />
-            <input
-              className="glass-input"
-              placeholder="بحث عن محاضر..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={{ paddingRight: 32 }}
-            />
+            <input className="glass-input" placeholder="بحث عن محاضر..."
+              value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => e.key === 'Escape' && setSearchTerm('')}
+              style={{ paddingRight: 32, paddingLeft: searchTerm ? 32 : 12 }} />
+            {searchTerm && (
+              <button onClick={() => setSearchTerm('')} style={{
+                position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2
+              }}><X size={14} /></button>
+            )}
           </div>
           {hasPermission('finance.accounts') && (
             <button className="glass-btn primary" onClick={handlePayAllLecturers} disabled={isLoading || totalRemaining <= 0}>

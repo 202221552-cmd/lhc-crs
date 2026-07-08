@@ -166,7 +166,10 @@ export const ManageDiplomasPage = () => {
   const handleResetFilters = () => { setSearchQuery(''); setFilterEntity(''); setFilterCategory(''); setFilterStatus(''); };
 
   const filtered = useMemo(() => diplomas.filter(d => {
-    if (searchQuery && !d.name.includes(searchQuery) && !d.id.includes(searchQuery)) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!d.name.toLowerCase().includes(q) && !d.id.toLowerCase().includes(q)) return false;
+    }
     if (filterEntity && d.entityId !== Number(filterEntity)) return false;
     if (filterCategory && d.category !== filterCategory) return false;
     if (filterStatus && d.status !== filterStatus) return false;
@@ -402,7 +405,16 @@ export const ManageDiplomasPage = () => {
 
               <div style={{ position: 'relative', marginBottom: 12 }}>
                 <Search size={15} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', zIndex: 1 }} />
-                <input type="text" className="glass-input" style={{ paddingRight: 38 }} placeholder="ابحث باسم الدبلوم أو الرمز..." value={searchQuery} onInput={e => setSearchQuery((e.target as HTMLInputElement).value)} />
+                <input type="text" className="glass-input" style={{ paddingRight: 38, paddingLeft: searchQuery ? 32 : 12 }}
+                  placeholder="ابحث باسم الدبلوم أو الرمز..." value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => e.key === 'Escape' && setSearchQuery('')} />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} style={{
+                    position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2
+                  }}><X size={14} /></button>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
