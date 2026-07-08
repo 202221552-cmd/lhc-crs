@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 /* ───────── sound / vibration (global, always available) ───────── */
 let audioCtx: AudioContext | null = null;
 let audioReady = false;
@@ -172,7 +174,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const resetBizzAlert = useCallback(() => setBizzAlert(0), []);
   const api = useCallback(async (path: string, options?: RequestInit) => {
     const token = localStorage.getItem('ems_token');
-    const res = await fetch(`http://localhost:5000/api${path}`, {
+    const res = await fetch(`${API_BASE}/api${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -202,7 +204,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   // Connect socket
   useEffect(() => {
     if (!user || !token) return;
-    const s = io('http://localhost:5000', {
+    const s = io(API_BASE, {
       auth: { token },
     });
     s.on('connect', () => {

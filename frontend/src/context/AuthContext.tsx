@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
-const API = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = `${API_BASE}/api`;
 
 // Resolve a file path from the backend to a full URL
 export function fileUrl(filePath: string | null | undefined): string {
@@ -9,7 +10,7 @@ export function fileUrl(filePath: string | null | undefined): string {
   if (filePath.startsWith('data:')) return filePath;
   if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
   if (filePath.startsWith('/uploads/')) {
-    return `http://localhost:5000/api/files/${filePath.replace('/uploads/', '')}`;
+    return `${API_BASE}/api/files/${filePath.replace('/uploads/', '')}`;
   }
   return filePath;
 }

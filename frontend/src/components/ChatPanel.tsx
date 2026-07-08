@@ -135,7 +135,7 @@ function MessageContent({ text }: { text: string }) {
 function imgUrl(p: string | undefined | null) {
   if (!p) return '';
   if (p.startsWith('http://') || p.startsWith('https://')) return p;
-  if (p.startsWith('/uploads/')) return `http://localhost:5000/api/files/${p.replace('/uploads/', '')}`;
+  if (p.startsWith('/uploads/')) return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/files/${p.replace('/uploads/', '')}`;
   return p;
 }
 
