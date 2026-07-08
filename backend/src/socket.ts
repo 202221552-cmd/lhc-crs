@@ -10,7 +10,7 @@ const onlineUsers = new Map<number, { sockets: Set<string>; lastSeen?: Date }>()
 export function setupSocket(httpServer: HTTPServer) {
   const io = new Server(httpServer, {
     cors: {
-      origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+      origin: ['https://lhcenter.onrender.com', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
       credentials: true,
     },
   });
