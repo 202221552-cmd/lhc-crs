@@ -19,6 +19,7 @@ interface Diploma {
   entity: { id: number; name: string } | null;
   entityId: number | null;
   courses: { course: Course; order: number }[];
+  description?: string;
 }
 
 const statusOpts = [

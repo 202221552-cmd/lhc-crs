@@ -13,7 +13,8 @@ const API = 'http://localhost:5000/api';
 interface Section {
   id: string;
   name?: string;
-  course?: { id: string; name: string };
+  course?: { id: string; name: string; categoryId?: number };
+  courseId: string;
   room?: { id: string; name: string; entity?: { name: string } };
   instructor?: { id: string; name: string };
   days: string;

@@ -600,7 +600,7 @@ export const AddToSectionPage = () => {
                     <table className="glass-table">
                       <thead><tr><th>الطالب</th><th>الهاتف</th><th></th></tr></thead>
                       <tbody>
-                        {enrolled.filter(qfilter).slice(0, 50).map(s => (
+                        {enrolled.filter(qfilter).slice(0, 50).map((s: any) => (
                           <React.Fragment key={s.id}>
                             <tr>
                               <td style={{ fontWeight: 600, cursor: 'pointer' }} onClick={() => toggleSchedule(s.id)}>

@@ -37,13 +37,15 @@ function formatDateHeader(dateStr: string) {
   return d.toLocaleDateString('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function getOtherParticipant(conv: any, userId: number) {
-  return conv.participants?.find((p: any) => p.userId !== userId)?.user;
+function getOtherParticipant(conv: any, userId: string | number | undefined) {
+  const uid = Number(userId);
+  return conv.participants?.find((p: any) => p.userId !== uid)?.user;
 }
 
-function getReaderNames(msg: any, userId?: number): string[] {
+function getReaderNames(msg: any, userId?: string | number): string[] {
+  const uid = userId !== undefined ? Number(userId) : undefined;
   return (msg.statuses || [])
-    .filter((s: any) => s.userId !== userId && s.status === 'READ' && s.fullName)
+    .filter((s: any) => s.userId !== uid && s.status === 'READ' && s.fullName)
     .map((s: any) => s.fullName);
 }
 
@@ -278,7 +280,7 @@ export default function ChatSidebar({ open, onClose }: { open: boolean; onClose:
   const ty = activeConv ? (typingUsers.get(activeConv) || []) : [];
   const isOnline = ot ? onlineUsers.has(ot.id) : false;
   const isGroup = ac?.type === 'GROUP';
-  const isGroupAdmin = isGroup && ac?.createdById === user?.id;
+  const isGroupAdmin = isGroup && ac?.createdById === Number(user?.id);
 
   const iconBtn: React.CSSProperties = {
     width: 32, height: 32, borderRadius: 8, cursor: 'pointer', flexShrink: 0,
@@ -430,7 +432,7 @@ export default function ChatSidebar({ open, onClose }: { open: boolean; onClose:
     return (c.type === 'GROUP' ? (c.name || '') : (u?.fullName || '')).toLowerCase().includes(search.toLowerCase());
   });
 
-  const availableFiltered = availableUsers.filter(u => u.id !== user?.id && u.fullName.includes(search));
+  const availableFiltered = availableUsers.filter(u => u.id !== Number(user?.id) && u.fullName.includes(search));
 
   const groupedMessages = useMemo(() => {
     const groups: { date: string; msgs: Msg[] }[] = [];
@@ -701,7 +703,7 @@ export default function ChatSidebar({ open, onClose }: { open: boolean; onClose:
                   </div>
 
                   {group.msgs.map((m, idx) => {
-                    const isMine = m.senderId === user?.id;
+                    const isMine = m.senderId === Number(user?.id);
                     const isTemp = m.id < 0;
                     const isDeleted = m.content === null && m.imageUrl === null;
                     const hasImage = !!m.imageUrl;

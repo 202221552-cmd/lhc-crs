@@ -543,6 +543,7 @@ export const AdminEmployeesPage = () => {
                       isUploading={false}
                       onPreview={() => setImageModal({ src: fileUrl(img), alt: `عقد صفحة ${idx + 1}` })}
                       onDelete={() => handleLocalDelete('contract', idx)}
+                      onUpload={() => {}}
                       compact
                     />
                   ))}

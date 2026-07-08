@@ -18,6 +18,7 @@ interface StudentSection {
   attendanceStatus?: string | null;
   attendanceOverride?: boolean;
   attendanceOverrideReason?: string | null;
+  studentId: string;
 }
 
 interface Student {
@@ -85,7 +86,7 @@ export const StudentManagementPage = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [isDeepSearchOpen, setIsDeepSearchOpen] = useState(false);
   const [deepFilters, setDeepFilters] = useState<DeepSearchFilters>({});
@@ -406,7 +407,7 @@ export const StudentManagementPage = () => {
                 <select className="glass-input" style={{ fontSize: '0.82rem' }}
                   value={f.val} onChange={e => { f.set(e.target.value); setTimeout(() => loadStudents(searchQuery), 0); }}>
                   <option value="">الكل</option>
-                  {f.opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {f.opts.map((o: { value: string; label: string }) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             ))}

@@ -457,7 +457,7 @@ const DockItem = ({ item, index, isActive, groupColor, editing, togglePin, reord
 
 // ========== TOPBAR ==========
 interface TopbarProps {
-  pinnedPages: MenuItem[];
+  pinnedPages: string[];
   togglePin: (path: string) => void;
   reorderPinned: (from: number, to: number) => void;
   chatOpen: boolean;

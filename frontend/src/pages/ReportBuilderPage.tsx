@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClipboardList, Save, Trash2, Plus, RefreshCw, Columns, Play, Filter, X, Table, Eye, Printer, FileSpreadsheet, FileText, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { ClipboardList, Save, Trash2, Plus, RefreshCw, Columns, Play, Filter, X, Table, Eye, Printer, FileSpreadsheet, FileText, ChevronDown, ChevronUp, Search, Download } from 'lucide-react';
 import { useApi, useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -273,7 +273,7 @@ export const ReportBuilderPage = () => {
   const activeFiltersCount = enabledFilters.size;
   const enabledColsCount = selectedCols.size;
 
-  const SectionToggle = ({ section, label, count, children }: { section: string; label: string; count?: number; children: React.ReactNode }) => (
+  const SectionToggle = ({ section, label, count, children }: { section: string; label: React.ReactNode; count?: number; children: React.ReactNode }) => (
     <div style={{ border: '1px solid var(--glass-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--card-bg)' }}>
       <div onClick={() => toggleSection(section)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', background: expandedSections[section] ? 'var(--primary-light)' : 'transparent' }}>
         <span style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>{label}</span>

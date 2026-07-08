@@ -47,7 +47,7 @@ export const StudentProfilePage = () => {
   const [isDeepOpen, setIsDeepOpen] = useState(false);
   const [showCard, setShowCard] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
-  const [printSections, setPrintSections] = useState({ subs: true, installments: true, notes: true, schedule: true, attendance: true });
+  const [printSections, setPrintSections] = useState<Record<string, boolean>>({ subs: true, installments: true, notes: true, schedule: true, attendance: true });
 
   const togglePrintSection = (key: string) => setPrintSections(prev => ({ ...prev, [key]: !prev[key] }));
   const getPhone = (p: any) => { try { return (typeof p === 'string' ? JSON.parse(p) : p)?.[0] || '—'; } catch { return '—'; } };

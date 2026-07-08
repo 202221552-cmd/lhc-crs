@@ -137,7 +137,7 @@ export const AdminUsersPage = () => {
         username: '', password: '', fullName: '', role: 'EMPLOYEE',
         status: 'ACTIVE', maxDevicesAllowed: 3, permissions: [],
         portals: getDefaultPortals('EMPLOYEE'),
-        employeeId, supervisorId: '',
+        employeeId, supervisorId: '', teamLeaderId: '',
         assignedEntityIds: []
       });
       setShowModal(true);

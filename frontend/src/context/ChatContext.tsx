@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
@@ -67,6 +68,7 @@ interface ChatUser {
   username: string;
   role: string;
   lastSeenAt?: string;
+  profileImage?: string;
 }
 
 interface MessageSender {
@@ -110,6 +112,7 @@ interface Conversation {
   lastMessage: Message | null;
   unread: number;
   updatedAt: string;
+  createdById: number;
 }
 
 interface ChatContextType {
@@ -209,7 +212,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     });
     s.on('connect', () => {
       setConnected(true);
-      if (user) setOnlineUsers(prev => new Set(prev).add(user.id));
+      if (user) setOnlineUsers(prev => new Set(prev).add(Number(user.id)));
     });
     s.on('disconnect', () => setConnected(false));
 
@@ -246,7 +249,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         if (idx === -1) return prev;
         const next = [...prev];
         const isViewing = activeConvRef.current === msg.conversationId;
-        const isOwn = msg.senderId === userRef.current?.id;
+        const isOwn = msg.senderId === Number(userRef.current?.id);
         next[idx] = {
           ...next[idx],
           lastMessage: msg,
@@ -257,7 +260,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         return next;
       });
 
-      if (msg.senderId !== userRef.current?.id) {
+      if (msg.senderId !== Number(userRef.current?.id)) {
         s.emit('message:delivered', { messageId: msg.id, conversationId: msg.conversationId });
         if (activeConvRef.current === msg.conversationId) {
           s.emit('message:read', { conversationId: msg.conversationId, messageIds: [msg.id] });
@@ -437,12 +440,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const optimistic: Message = {
       id: tempId,
       conversationId: convId,
-      senderId: user.id,
+      senderId: Number(user.id),
       content,
       imageUrl: null,
       createdAt: new Date().toISOString(),
-      sender: { id: user.id, fullName: user.fullName },
-      statuses: [{ id: 0, messageId: tempId, userId: user.id, status: 'SENT' as const, readAt: null }],
+      sender: { id: Number(user.id), fullName: user.fullName },
+      statuses: [{ id: 0, messageId: tempId, userId: Number(user.id), status: 'SENT' as const, readAt: null }],
     };
 
     setMessages(prev => [...prev, optimistic]);

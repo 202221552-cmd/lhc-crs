@@ -893,7 +893,7 @@ ${tx.notes ? `<div class="r"><span class="l">ملاحظات</span><span class="v
                   <label style={{ ...gl, color: 'var(--danger)' }}>الطالب المستحق</label>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
                     <input type="text" className="glass-input" placeholder="اسم الطالب..." value={pStudentName}
-                      onChange={e => { setPStudentName(e.target.value); searchPaymentStudents(e.target.value); }}
+                      onChange={e => { setPStudentName(e.target.value); searchStudents(e.target.value); }}
                       onFocus={() => { if (pSearchResults.length > 0) setShowPSearch(true); }}
                       style={{ fontSize: '0.8rem', flex: 1, padding: '7px 10px' }}
                     />

@@ -1099,13 +1099,13 @@ ${tx.notes ? `<div class="row"><span>ملاحظات</span><span>${tx.notes}</spa
                       <button className="glass-btn icon-btn xs" onClick={() => {
                         const cnt = Math.max(1, scheduleCount - 1);
                         setScheduleCount(cnt);
-                        setScheduleData(distributeSchedule(cnt, scheduleTotal, scheduleData));
+                        setScheduleData(distributeSchedule(cnt, scheduleTotal, scheduleData) ?? []);
                       }} style={{ width: 26, height: 26, borderRadius: 6, fontSize: '1rem', lineHeight: 1, padding: 0, fontWeight: 700 }}>−</button>
                       <span style={{ fontSize: '1.1rem', fontWeight: 700, minWidth: 28, textAlign: 'center' }}>{scheduleCount}</span>
                       <button className="glass-btn icon-btn xs" onClick={() => {
                         const cnt = scheduleCount + 1;
                         setScheduleCount(cnt);
-                        setScheduleData(distributeSchedule(cnt, scheduleTotal, scheduleData));
+                        setScheduleData(distributeSchedule(cnt, scheduleTotal, scheduleData) ?? []);
                       }} style={{ width: 26, height: 26, borderRadius: 6, fontSize: '1rem', lineHeight: 1, padding: 0, fontWeight: 700 }}>+</button>
                     </div>
                   </div>

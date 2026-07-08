@@ -219,6 +219,7 @@ export interface User {
   portalTabs: string[];
   studentId?: string;
   instructorId?: string;
+  employeeId?: string;
   profileImage?: string | null;
   aboutStatus?: string;
   points: number;
@@ -326,14 +327,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('ems_active_portal', portal.toUpperCase());
     }
     setState(prev => ({ ...prev, user: data.user, token: data.token, activePortal: portal?.toUpperCase() || null }));
-    return data.user;
 
     // Sync localStorage settings to backend (for incognito / fresh browsers)
     const localName = localStorage.getItem('centerName');
     const localLogo = localStorage.getItem('centerLogo');
     const body: Record<string, string> = {};
-    if (localName) body.centerName = localName;
-    if (localLogo) body.centerLogo = localLogo;
+    if (localName) body.centerName = localName ?? '';
+    if (localLogo) body.centerLogo = localLogo ?? '';
     if (Object.keys(body).length > 0) {
       await fetch(`${API}/settings`, {
         method: 'PUT',
@@ -343,6 +343,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Re-fetch settings so state reflects DB
       setState(prev => ({ ...prev, settingsLoaded: false }));
     }
+
+    return data.user;
   };
 
   const logout = async () => {
