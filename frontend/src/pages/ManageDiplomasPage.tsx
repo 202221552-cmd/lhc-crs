@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { DIPLOMA_CATEGORIES } from '../utils/constants';
+import { DIPLOMA_CATEGORIES, normalizeDigits } from '../utils/constants';
 
 interface Course { id: string; name: string; price: number; hours: number; categoryId: number; }
 interface CourseCategory { id: number; name: string; nameAr: string | null; }
@@ -114,9 +114,9 @@ export const ManageDiplomasPage = () => {
     if (!formData.category) return toast.error('تنبيه', 'يرجى اختيار تصنيف الدبلوم');
     if (!formData.entityId) return toast.error('تنبيه', 'يرجى اختيار الجهة التعليمية');
     if (selectedCourses.length === 0) return toast.error('تنبيه', 'يرجى اختيار دورة واحدة على الأقل');
-    if (!formData.totalHours || formData.totalHours < 1) return toast.error('تنبيه', 'يرجى إدخال إجمالي الساعات');
-    if (!formData.totalPrice || formData.totalPrice < 1) return toast.error('تنبيه', 'يرجى إدخال إجمالي السعر');
-    if (!formData.minPayment || formData.minPayment < 1) return toast.error('تنبيه', 'يرجى إدخال الحد الأدنى للدفع');
+    if (formData.totalHours < 0) return toast.error('تنبيه', 'يرجى إدخال إجمالي الساعات');
+    if (formData.totalPrice < 0) return toast.error('تنبيه', 'يرجى إدخال إجمالي السعر');
+    if (formData.minPayment < 0) return toast.error('تنبيه', 'يرجى إدخال الحد الأدنى للدفع');
 
     const exists = diplomas.some(d => d.name === formData.name && (!editingDiploma || d.id !== editingDiploma.id));
     if (exists) return toast.error('خطأ', 'يوجد دبلوم بنفس الاسم بالفعل');
@@ -334,15 +334,21 @@ export const ManageDiplomasPage = () => {
             <div className="grid-3" style={{ gap: 12 }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">الساعات</label>
-                <input type="number" className="glass-input" value={formData.totalHours} onChange={e => setFormData({ ...formData, totalHours: Number(e.target.value) })} min={0} placeholder="0" />
+                <input type="text" inputMode="numeric" className="glass-input" value={formData.totalHours || ''}
+                  onChange={e => { const v = normalizeDigits(e.target.value).replace(/\D/g, ''); setFormData({ ...formData, totalHours: v ? parseInt(v) : 0 }); }}
+                  placeholder="0" />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">السعر (د.أ)</label>
-                <input type="number" className="glass-input" value={formData.totalPrice} onChange={e => setFormData({ ...formData, totalPrice: Number(e.target.value) })} min={0} step="0.01" placeholder="0.00" />
+                <input type="text" inputMode="decimal" className="glass-input" value={formData.totalPrice || ''}
+                  onChange={e => { const v = normalizeDigits(e.target.value).replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'); setFormData({ ...formData, totalPrice: v ? parseFloat(v) : 0 }); }}
+                  placeholder="0.00" />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">الحد الأدنى</label>
-                <input type="number" className="glass-input" value={formData.minPayment} onChange={e => setFormData({ ...formData, minPayment: Number(e.target.value) })} min={0} step="0.01" placeholder="0.00" />
+                <input type="text" inputMode="decimal" className="glass-input" value={formData.minPayment || ''}
+                  onChange={e => { const v = normalizeDigits(e.target.value).replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'); setFormData({ ...formData, minPayment: v ? parseFloat(v) : 0 }); }}
+                  placeholder="0.00" />
               </div>
             </div>
 

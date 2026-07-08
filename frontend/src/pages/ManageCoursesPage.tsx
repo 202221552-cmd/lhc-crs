@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, Plus, BookOpen, Search, Trash2, X, Pencil, DollarSign, Clock, AlertCircle, Building2, Layers } from 'lucide-react';
+import { Save, Plus, BookOpen, Search, Trash2, X, Pencil, DollarSign, Clock, AlertCircle, Building2, Layers, Settings2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { normalizeDigits } from '../utils/constants';
 
 interface CourseCategory { id: number; name: string; nameAr: string | null; }
 interface EducationalEntity { id: number; name: string; }
@@ -46,6 +47,10 @@ export const ManageCoursesPage = () => {
   const [editingStatus, setEditingStatus] = useState('');
   const [splitPos, setSplitPos] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const [catModalOpen, setCatModalOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<CourseCategory | null>(null);
+  const [catForm, setCatForm] = useState({ name: '', nameAr: '' });
+  const [savingCat, setSavingCat] = useState(false);
 
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({ name: '', categoryId: 1, hours: 0, price: 0, minPayment: 0, duration: '', description: '', entityId: '' });
@@ -87,10 +92,9 @@ export const ManageCoursesPage = () => {
   const handleSave = async () => {
     if (!formData.name) return toast.error('تنبيه', 'يرجى إدخال اسم الدورة');
     if (!formData.entityId) return toast.error('تنبيه', 'يرجى اختيار الجهة التعليمية');
-    if (!formData.hours || formData.hours < 1) return toast.error('تنبيه', 'يرجى إدخال عدد الساعات');
-    if (!formData.price || formData.price < 1) return toast.error('تنبيه', 'يرجى إدخال السعر');
-    if (!formData.minPayment || formData.minPayment < 1) return toast.error('تنبيه', 'يرجى إدخال الحد الأدنى للدفع');
-    if (!formData.duration) return toast.error('تنبيه', 'يرجى إدخال المدة الزمنية');
+    if (formData.hours < 0) return toast.error('تنبيه', 'يرجى إدخال عدد الساعات');
+    if (formData.price < 0) return toast.error('تنبيه', 'يرجى إدخال السعر');
+    if (formData.minPayment < 0) return toast.error('تنبيه', 'يرجى إدخال الحد الأدنى للدفع');
 
     const exists = courses.some(c => c.name === formData.name && c.categoryId === formData.categoryId && (!editingCourse || c.id !== editingCourse.id));
     if (exists) return toast.error('خطأ', 'يوجد دورة بنفس الاسم في هذا التصنيف بالفعل');
@@ -190,6 +194,49 @@ export const ManageCoursesPage = () => {
     return cat?.nameAr || cat?.name || '—';
   };
 
+  const openAddCat = () => { setEditingCat(null); setCatForm({ name: '', nameAr: '' }); setCatModalOpen(true); };
+
+  const openEditCat = (cat: CourseCategory) => { setEditingCat(cat); setCatForm({ name: cat.name, nameAr: cat.nameAr || '' }); setCatModalOpen(true); };
+
+  const handleSaveCat = async () => {
+    if (!catForm.name) return toast.error('تنبيه', 'يرجى إدخال اسم التصنيف');
+    setSavingCat(true);
+    try {
+      const isEdit = !!editingCat;
+      const url = isEdit ? `${API_BASE}/api/courses/categories/${editingCat!.id}` : API_BASE + '/api/courses/categories';
+      const res = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(catForm)
+      });
+      if (res.ok) {
+        toast.success(isEdit ? 'تم التعديل' : 'تمت الإضافة', isEdit ? 'تم تحديث التصنيف' : 'تم إضافة التصنيف');
+        setCatModalOpen(false);
+        const catRes = await fetch(API_BASE + '/api/courses/categories', { headers: { Authorization: `Bearer ${token}` } });
+        if (catRes.ok) setCategories(await catRes.json());
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error('خطأ', err.error || 'فشل الحفظ');
+      }
+    } catch { toast.error('خطأ', 'تعذر الاتصال بالخادم'); }
+    finally { setSavingCat(false); }
+  };
+
+  const handleDeleteCat = async (id: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/courses/categories/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        toast.success('تم الحذف', 'تم حذف التصنيف');
+        setCatModalOpen(false);
+        const catRes = await fetch(API_BASE + '/api/courses/categories', { headers: { Authorization: `Bearer ${token}` } });
+        if (catRes.ok) setCategories(await catRes.json());
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error('خطأ', err.error || 'فشل الحذف');
+      }
+    } catch { toast.error('خطأ', 'تعذر الاتصال بالخادم'); }
+  };
+
   return (
     <div className="fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -232,10 +279,17 @@ export const ManageCoursesPage = () => {
                   <Layers size={12} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
                   التصنيف
                 </label>
-                <select className="glass-input" value={formData.categoryId}
-                  onChange={e => setFormData({ ...formData, categoryId: Number(e.target.value) })}>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.nameAr || c.name}</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select className="glass-input" value={formData.categoryId} style={{ flex: 1 }}
+                    onChange={e => setFormData({ ...formData, categoryId: Number(e.target.value) })}>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.nameAr || c.name}</option>)}
+                  </select>
+                  {hasPermission('courses.manage') && (
+                    <button className="glass-btn icon-only sm secondary" onClick={openAddCat} title="إدارة التصنيفات" style={{ padding: 6, flexShrink: 0 }}>
+                      <Settings2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">
@@ -256,22 +310,22 @@ export const ManageCoursesPage = () => {
               <DollarSign size={16} className="text-success" /> البيانات المالية والتسعير
             </h4>
 
-            <div className="grid-3" style={{ gap: 12 }}>
+              <div className="grid-3" style={{ gap: 12 }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">السعر الأساسي</label>
                 <div style={{ position: 'relative' }}>
-                  <input type="number" className="glass-input" value={formData.price}
-                    onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
-                    min={0} step="0.01" placeholder="0.00" style={{ paddingLeft: 30, textAlign: 'center' }} />
+                  <input type="text" inputMode="decimal" className="glass-input" value={formData.price || ''}
+                    onChange={e => { const v = normalizeDigits(e.target.value).replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'); setFormData({ ...formData, price: v ? parseFloat(v) : 0 }); }}
+                    placeholder="0.00" style={{ paddingLeft: 30, textAlign: 'center' }} />
                   <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>د.أ</span>
                 </div>
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">الحد الأدنى</label>
                 <div style={{ position: 'relative' }}>
-                  <input type="number" className="glass-input" value={formData.minPayment}
-                    onChange={e => setFormData({ ...formData, minPayment: Number(e.target.value) })}
-                    min={0} step="0.01" placeholder="0.00" style={{ paddingLeft: 30, textAlign: 'center' }} />
+                  <input type="text" inputMode="decimal" className="glass-input" value={formData.minPayment || ''}
+                    onChange={e => { const v = normalizeDigits(e.target.value).replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'); setFormData({ ...formData, minPayment: v ? parseFloat(v) : 0 }); }}
+                    placeholder="0.00" style={{ paddingLeft: 30, textAlign: 'center' }} />
                   <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>د.أ</span>
                 </div>
               </div>
@@ -281,9 +335,9 @@ export const ManageCoursesPage = () => {
                   الساعات
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <input type="number" className="glass-input" value={formData.hours}
-                    onChange={e => setFormData({ ...formData, hours: Number(e.target.value) })}
-                    min={0} placeholder="0" style={{ paddingLeft: 22, textAlign: 'center' }} />
+                  <input type="text" inputMode="numeric" className="glass-input" value={formData.hours || ''}
+                    onChange={e => { const v = normalizeDigits(e.target.value).replace(/\D/g, ''); setFormData({ ...formData, hours: v ? parseInt(v) : 0 }); }}
+                    placeholder="0" style={{ paddingLeft: 22, textAlign: 'center' }} />
                   <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>س</span>
                 </div>
               </div>
@@ -464,6 +518,56 @@ export const ManageCoursesPage = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Category Management Modal ── */}
+      {catModalOpen && (
+        <div className="modal-overlay" onClick={() => setCatModalOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><Layers size={18} className="text-primary" /> {editingCat ? 'تعديل التصنيف' : 'إضافة تصنيف'}</h3>
+              <button className="glass-btn icon-only sm secondary" onClick={() => setCatModalOpen(false)}><X size={16} /></button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">الاسم (إنجليزي) <span className="required-star">*</span></label>
+                <input type="text" className="glass-input" value={catForm.name}
+                  onChange={e => setCatForm({ ...catForm, name: e.target.value })}
+                  placeholder="مثال: PROGRAMMING" />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">الاسم (عربي)</label>
+                <input type="text" className="glass-input" value={catForm.nameAr}
+                  onChange={e => setCatForm({ ...catForm, nameAr: e.target.value })}
+                  placeholder="مثال: برمجة" />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="glass-btn" style={{ flex: 1 }} onClick={handleSaveCat} disabled={savingCat}>
+                  <Save size={16} /> {savingCat ? 'جاري الحفظ...' : editingCat ? 'تحديث' : 'إضافة'}
+                </button>
+                {editingCat && (
+                  <button className="glass-btn secondary" style={{ color: 'var(--danger)' }} onClick={() => { if (window.confirm('حذف هذا التصنيف؟')) handleDeleteCat(editingCat.id); }}>
+                    <Trash2 size={16} /> حذف
+                  </button>
+                )}
+              </div>
+              {categories.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 12 }}>
+                  <label className="form-label" style={{ fontWeight: 600, marginBottom: 8, display: 'block' }}>التصنيفات الحالية</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                    {categories.map(c => (
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 6, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', cursor: 'pointer', fontSize: '0.85rem' }}
+                        onClick={() => openEditCat(c)}>
+                        <span>{c.nameAr || c.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>({c.name})</span></span>
+                        <Pencil size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal isOpen={confirmDeleteId !== null} message="هل أنت متأكد من حذف هذه الدورة؟" confirmText="حذف" danger onConfirm={handleConfirmDelete} onCancel={() => setConfirmDeleteId(null)} />
     </div>
