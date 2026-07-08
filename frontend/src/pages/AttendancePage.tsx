@@ -560,7 +560,7 @@ export const AttendancePage = () => {
               <div style={{ marginBottom: 12 }}>
                 <div className="search-bar" style={{ position: 'relative' }}>
                   <Search className="search-icon" size={17} />
-                  <input type="text" className="glass-input" placeholder="بحث باسم الطالب أو الرقم..."
+                  <input type="text" className="glass-input" placeholder="بحث باسم الطالب أو الرقم... ( / للبحث)"
                     value={searchQ} onChange={e => setSearchQ(e.target.value)}
                     onKeyDown={e => e.key === 'Escape' && setSearchQ('')}
                     style={{ paddingLeft: searchQ ? 32 : 12 }} />
@@ -571,6 +571,11 @@ export const AttendancePage = () => {
                     }}><X size={14} /></button>
                   )}
                 </div>
+                {searchQ && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    عرض <strong style={{ color: 'var(--primary)' }}>{tab === 'record' ? filteredStudents.length : filteredSummary.length}</strong> من <strong>{tab === 'record' ? students.length : summaryStudents.length}</strong> طالب
+                  </div>
+                )}
               </div>
 
               <div className="glass-table-container">

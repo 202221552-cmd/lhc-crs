@@ -21,23 +21,16 @@ router.put('/', authMiddleware, requirePermission('admin.settings'), async (req,
   try {
     const entries = req.body;
 
-    // Handle base64 logo — save to disk
+    // Handle base64 logo — store in DB (avoids file loss on Render restarts)
     if (entries.centerLogo && typeof entries.centerLogo === 'string' && entries.centerLogo.startsWith('data:image')) {
-      // Delete old logo file if exists
+      // Delete old file on disk if exists
       const oldValue = await prisma.systemSetting.findUnique({ where: { key: 'centerLogo' } });
       if (oldValue?.value && oldValue.value.startsWith('/uploads/')) {
         const relativePath = oldValue.value.replace('/uploads/', '');
         deleteFile(relativePath);
       }
-
-      const matches = entries.centerLogo.match(/^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,(.+)$/);
-      if (matches) {
-        const ext = matches[1] === 'svg+xml' ? 'svg' : matches[1];
-        const data = Buffer.from(matches[2], 'base64');
-        const filename = `logo-${uuidv4()}.${ext}`;
-        fs.writeFileSync(path.join(STORAGE_DIRS.LOGOS, filename), data);
-        entries.centerLogo = `/uploads/logos/${filename}`;
-      }
+      // Store base64 directly in DB
+      entries.centerLogo = entries.centerLogo;
     }
 
     for (const [key, value] of Object.entries(entries)) {

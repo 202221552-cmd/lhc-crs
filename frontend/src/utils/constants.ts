@@ -1,3 +1,5 @@
+import React from 'react';
+
 // ==========================================
 // Jordanian Universities & Colleges
 // ==========================================
@@ -194,3 +196,14 @@ export const SUB_STATUS_MAP: Record<string, { label: string; cls: string }> = {
   WITHDRAWN: { label: 'منسحب',  cls: 'warning' },
   CANCELED:  { label: 'ملغي',   cls: 'danger' },
 };
+
+export function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query || !text) return text;
+  const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${q})`, 'gi'));
+  return parts.map((part, i) =>
+    part.toLowerCase() === q.toLowerCase()
+      ? React.createElement('mark', { key: i, style: { background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 2, padding: '0 2px' } }, part)
+      : part
+  );
+}

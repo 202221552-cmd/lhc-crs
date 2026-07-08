@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Save, Plus, Layers, Search, Trash2, Calendar,
@@ -56,6 +56,7 @@ export const ManageSectionsPage = () => {
   const [filterCategoryId, setFilterCategoryId] = useState('');
   const [filterCourseId, setFilterCourseId] = useState('');
 
+  const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery]         = useState('');
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -215,6 +216,17 @@ export const ManageSectionsPage = () => {
     setFormData({ ...formData, courseId });
   };
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   /* ─────────────── Render ─────────────── */
   return (
     <div className="fade-in">
@@ -260,7 +272,7 @@ export const ManageSectionsPage = () => {
           </div>
           <div className="search-bar" style={{ flex: 2, minWidth: 200, position: 'relative' }}>
             <Search className="search-icon" size={17}/>
-            <input type="text" className="glass-input" placeholder="بحث بالدورة أو المحاضر أو القاعة..."
+            <input ref={searchRef} type="text" className="glass-input" placeholder="بحث بالدورة أو المحاضر أو القاعة... ( / للبحث)"
               value={query} onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Escape' && setQuery('')}
               style={{ paddingLeft: query ? 32 : 12 }} />
@@ -271,6 +283,11 @@ export const ManageSectionsPage = () => {
               }}><X size={14} /></button>
             )}
           </div>
+          {query && (
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginRight: 'auto' }}>
+              عرض <strong style={{ color: 'var(--primary)' }}>{filtered.length}</strong> من <strong>{sections.length}</strong> شعبة
+            </div>
+          )}
         </div>
       </div>
 

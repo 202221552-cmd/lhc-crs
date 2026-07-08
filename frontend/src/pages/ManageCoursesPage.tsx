@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { normalizeDigits } from '../utils/constants';
+import { normalizeDigits, highlightMatch } from '../utils/constants';
 
 interface CourseCategory { id: number; name: string; nameAr: string | null; }
 interface EducationalEntity { id: number; name: string; }
@@ -34,6 +34,7 @@ export const ManageCoursesPage = () => {
   const { token, hasPermission } = useAuth();
   const toast = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<CourseCategory[]>([]);
   const [entities, setEntities] = useState<EducationalEntity[]>([]);
@@ -88,6 +89,17 @@ export const ManageCoursesPage = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const handleSave = async () => {
     if (!formData.name) return toast.error('تنبيه', 'يرجى إدخال اسم الدورة');
@@ -406,8 +418,8 @@ export const ManageCoursesPage = () => {
 
               <div style={{ position: 'relative', marginBottom: 12 }}>
                 <Search size={15} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', zIndex: 1 }} />
-                <input type="text" className="glass-input" style={{ paddingRight: 38, paddingLeft: searchQuery ? 32 : 12 }}
-                  placeholder="ابحث باسم الدورة أو الرمز..." value={searchQuery}
+                <input ref={searchRef} type="text" className="glass-input" style={{ paddingRight: 38, paddingLeft: searchQuery ? 32 : 12 }}
+                  placeholder="ابحث باسم الدورة أو الرمز... ( / للبحث)" value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === 'Escape' && setSearchQuery('')} />
                 {searchQuery && (
@@ -417,6 +429,12 @@ export const ManageCoursesPage = () => {
                   }}><X size={14} /></button>
                 )}
               </div>
+
+              {searchQuery && (
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  عرض <strong style={{ color: 'var(--primary)' }}>{filtered.length}</strong> من <strong>{courses.length}</strong> دورة
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: 8 }}>
                 <select className="glass-input" value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ fontSize: '0.82rem', flex: 1 }}>
