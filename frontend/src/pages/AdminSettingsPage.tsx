@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings, Save, Globe, Image, Monitor, Smartphone, Palette, Upload, X, Activity, RefreshCw, Filter, Trash2, Film, ChevronRight } from 'lucide-react';
+import { Settings, Save, Globe, Image, Monitor, Smartphone, Palette, Upload, X, Activity, RefreshCw, Filter, Trash2, ChevronRight } from 'lucide-react';
 import { PermissionGuard } from '../components/PermissionGuard';
 import { useApi, useAuth, fileUrl } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
@@ -145,10 +145,6 @@ export const AdminSettingsPage = () => {
 
   const bgPreview = () => {
     if (bgForm.type === 'IMAGE' && bgForm.content) return bgForm.content;
-    if (bgForm.type === 'VIDEO' && bgForm.content) {
-      const m = bgForm.content.match(/(?:youtube\.com|youtu\.be).*[?&]v=([^&]+)/);
-      if (m) return `https://img.youtube.com/vi/${m[1]}/maxresdefault.jpg`;
-    }
     return null;
   };
 
@@ -379,7 +375,6 @@ export const AdminSettingsPage = () => {
                 <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: 6 }}>
                   {bgForm.type === 'GRADIENT' && 'خلفية متدرجة (افتراضي)'}
                   {bgForm.type === 'IMAGE' && 'خلفية صورة'}
-                  {bgForm.type === 'VIDEO' && 'خلفية فيديو يوتيوب'}
                 </div>
               </div>
             </div>
@@ -393,7 +388,6 @@ export const AdminSettingsPage = () => {
                 {[
                   { type: 'GRADIENT', label: 'تدرج افتراضي', icon: Palette },
                   { type: 'IMAGE', label: 'صورة مرفوعة', icon: Image },
-                  { type: 'VIDEO', label: 'فيديو يوتيوب', icon: Film },
                 ].map(opt => (
                   <button key={opt.type} onClick={() => setBgForm({ type: opt.type, content: bgForm.type === opt.type ? bgForm.content : '' })}
                     className={`glass-btn ${bgForm.type === opt.type ? '' : 'secondary'}`}
@@ -413,14 +407,6 @@ export const AdminSettingsPage = () => {
                     {bgForm.content && hasPermission('admin.settings.edit') && <button className="glass-btn danger sm" onClick={() => setBgForm({ ...bgForm, content: '' })}><X size={14} /> إزالة</button>}
                   </div>
                   <input ref={bgFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBgImageUpload} />
-                </div>
-              )}
-
-              {bgForm.type === 'VIDEO' && (
-                <div className="form-group" style={{ marginBottom: 14 }}>
-                  <label className="form-label">رابط فيديو يوتيوب</label>
-                  <input className="glass-input" dir="ltr" placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
-                    value={bgForm.content} onChange={e => setBgForm({ ...bgForm, content: e.target.value })} />
                 </div>
               )}
 

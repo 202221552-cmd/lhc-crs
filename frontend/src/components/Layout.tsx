@@ -845,11 +845,6 @@ export const Layout = () => {
         if (adminBg && adminBg.type !== 'GRADIENT' && adminBg.content) {
           if (adminBg.type === 'IMAGE') {
             setBgStyle(fileUrl(adminBg.content));
-          } else if (adminBg.type === 'VIDEO' && adminBg.content.includes('youtube')) {
-            const match = adminBg.content.match(/(?:youtube\.com|youtu\.be).*[?&]v=([^&]+)/);
-            if (match) {
-              setBgStyle(`https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`);
-            }
           }
         }
       }

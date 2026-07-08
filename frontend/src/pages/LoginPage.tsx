@@ -14,7 +14,6 @@ interface Portal {
   icon: React.ReactNode;
   gradient: string;
   glowColor: string;
-  youtubeId: string;
   defaultUsername?: string;
 }
 
@@ -26,7 +25,6 @@ const PORTALS: Portal[] = [
     icon: <Shield size={28} />,
     gradient: 'linear-gradient(135deg, #1e1b4b 0%, #4f46e5 50%, #818cf8 100%)',
     glowColor: 'rgba(99,102,241,0.4)',
-    youtubeId: 'f6L4utpQGWc',
   },
   {
     key: 'EMPLOYEE',
@@ -35,7 +33,6 @@ const PORTALS: Portal[] = [
     icon: <Briefcase size={28} />,
     gradient: 'linear-gradient(135deg, #0f2027 0%, #059669 50%, #34d399 100%)',
     glowColor: 'rgba(16,185,129,0.4)',
-    youtubeId: 'w2ayusmjwYc',
   },
   {
     key: 'INSTRUCTOR',
@@ -44,7 +41,6 @@ const PORTALS: Portal[] = [
     icon: <BookOpen size={28} />,
     gradient: 'linear-gradient(135deg, #2e1065 0%, #7c3aed 50%, #a78bfa 100%)',
     glowColor: 'rgba(139,92,246,0.4)',
-    youtubeId: 'pAvIZfYa28A',
   },
   {
     key: 'STUDENT',
@@ -53,36 +49,8 @@ const PORTALS: Portal[] = [
     icon: <GraduationCap size={28} />,
     gradient: 'linear-gradient(135deg, #0f172a 0%, #2563eb 50%, #60a5fa 100%)',
     glowColor: 'rgba(59,130,246,0.4)',
-    youtubeId: '6Nyh6m1GJZA',
   },
 ];
-
-// ===== YOUTUBE BACKGROUND =====
-const YouTubeBackground = ({ videoId }: { videoId: string }) => (
-  <div style={{
-    position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0,
-    pointerEvents: 'none',
-  }}>
-    <iframe
-      src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1`}
-      allow="autoplay; encrypted-media"
-      style={{
-        position: 'absolute',
-        top: '50%', left: '50%',
-        width: '100vw', height: '56.25vw',
-        minHeight: '100vh', minWidth: '177.77vh',
-        transform: 'translate(-50%, -50%)',
-        border: 'none', opacity: 0.15,
-      }}
-      title="background"
-    />
-    <div style={{
-      position: 'absolute', inset: 0,
-      background: 'rgba(248,246,243,0.7)',
-      backdropFilter: 'blur(1px)',
-    }} />
-  </div>
-);
 
 // ===== PORTAL SELECTOR =====
 const PortalSelector = ({ onSelect }: { onSelect: (p: Portal) => void }) => {
@@ -301,12 +269,7 @@ const LoginForm = ({ portal, onBack }: { portal: Portal; onBack: () => void }) =
   };
 
   const showCustomBg = bgType && bgContent;
-  const videoId = showCustomBg && bgType === 'VIDEO'
-    ? (bgContent.match(/(?:youtube\.com|youtu\.be).*[?&]v=([^&]+)/)?.[1] || null)
-    : null;
   const bgImage = showCustomBg && bgType === 'IMAGE' ? bgContent : null;
-  const fallbackVideo = bgType === null && portal.youtubeId ? portal.youtubeId : null;
-  const activeYoutubeId = videoId || fallbackVideo;
 
   return (
     <div style={{
@@ -316,7 +279,6 @@ const LoginForm = ({ portal, onBack }: { portal: Portal; onBack: () => void }) =
         ? (bgType === 'GRADIENT' && bgContent ? bgContent : 'linear-gradient(165deg, #f8f6f3 0%, #f0ece6 50%, #e8e2d8 100%)')
         : 'linear-gradient(165deg, #f8f6f3 0%, #f0ece6 50%, #e8e2d8 100%)',
     }}>
-      {activeYoutubeId && <YouTubeBackground videoId={activeYoutubeId} />}
       {bgImage && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 0,
