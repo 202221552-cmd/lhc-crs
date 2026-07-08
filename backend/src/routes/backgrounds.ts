@@ -2,9 +2,9 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { prisma } from '../index';
-import { authMiddleware, requirePermission } from '../middleware/auth';
-import { STORAGE_DIRS, deleteFile } from '../utils/fileStorage';
+import { prisma } from '../index.js';
+import { authMiddleware, requirePermission } from '../middleware/auth.js';
+import { STORAGE_DIRS, deleteFile } from '../utils/fileStorage.js';
 
 const router = express.Router();
 

@@ -1,6 +1,6 @@
 import express from 'express';
-import { prisma } from '../index';
-import { authMiddleware } from '../middleware/auth';
+import { prisma } from '../index.js';
+import { authMiddleware } from '../middleware/auth.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { installmentService } from './financial.service';
-import { PayStudentBodySchema, InstallmentCreateSchema } from './financial.schema';
-import { ValidationError } from '../../shared/errors';
+import { installmentService } from './financial.service.js';
+import { PayStudentBodySchema, InstallmentCreateSchema } from './financial.schema.js';
+import { ValidationError } from '../../shared/errors.js';
 
 export class FinancialController {
   // POST /api/v2/financial/pay-student

@@ -1,8 +1,8 @@
 import express from 'express';
-import { prisma } from '../index';
-import { generateReceiptNumber } from '../utils/generateReceiptNumber';
-import { authMiddleware, requirePermission } from '../middleware/auth';
-import { generateInstallments } from './installment';
+import { prisma } from '../index.js';
+import { generateReceiptNumber } from '../utils/generateReceiptNumber.js';
+import { authMiddleware, requirePermission } from '../middleware/auth.js';
+import { generateInstallments } from './installment.js';
 
 const router = express.Router();
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../index';
+import { prisma } from '../index.js';
 
 export const auditLog = (action: string, entity: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {

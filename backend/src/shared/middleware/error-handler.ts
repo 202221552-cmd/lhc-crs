@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError, mapPrismaError } from '../errors';
-import { logger } from '../logger';
+import { AppError, mapPrismaError } from '../errors.js';
+import { logger } from '../logger.js';
 
 export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
   // Map Prisma errors to our format

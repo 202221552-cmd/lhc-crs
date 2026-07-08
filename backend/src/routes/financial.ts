@@ -1,7 +1,7 @@
 import express from 'express';
-import { prisma } from '../index';
-import { authMiddleware, requirePermission, selfOrPerm } from '../middleware/auth';
-import { generateReceiptNumber } from '../utils/generateReceiptNumber';
+import { prisma } from '../index.js';
+import { authMiddleware, requirePermission, selfOrPerm } from '../middleware/auth.js';
+import { generateReceiptNumber } from '../utils/generateReceiptNumber.js';
 
 const router = express.Router();
 
@@ -711,7 +711,7 @@ router.get('/students-list', authMiddleware, requirePermission('finance.view'), 
 
     // Apply query filter
     if (query && typeof query === 'string' && query.trim()) {
-      const { normalizeNumbers, normalizeArabic, smartFilter } = await import('../utils/searchEngine');
+      const { normalizeNumbers, normalizeArabic, smartFilter } = await import('../utils/searchEngine.js');
       const q = normalizeNumbers(query.trim());
       students = smartFilter(students, q, [
         'fullNameAr', 'fullNameEn', 'nationalId', 'passportId',

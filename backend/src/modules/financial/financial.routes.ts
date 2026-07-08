@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { financialController } from './financial.controller';
+import { financialController } from './financial.controller.js';
 
 export const financialV2Routes = Router();
 

@@ -1,7 +1,7 @@
 import { Server as HTTPServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { prisma } from './index';
+import { prisma } from './index.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ems-super-secret-2026';
 

@@ -1,9 +1,9 @@
-import { prisma } from '../../index';
-import { NotFoundError, ConflictError, ValidationError } from '../../shared/errors';
-import { eventBus, createEvent, Events } from '../../shared/infrastructure/event-bus';
-import { logger } from '../../shared/logger';
-import { DB_CONFIG } from '../../config/database';
-import { generateReceiptNumber } from '../../utils/generateReceiptNumber';
+import { prisma } from '../../index.js';
+import { NotFoundError, ConflictError, ValidationError } from '../../shared/errors.js';
+import { eventBus, createEvent, Events } from '../../shared/infrastructure/event-bus.js';
+import { logger } from '../../shared/logger.js';
+import { DB_CONFIG } from '../../config/database.js';
+import { generateReceiptNumber } from '../../utils/generateReceiptNumber.js';
 
 // ==================== Installment Service ====================
 

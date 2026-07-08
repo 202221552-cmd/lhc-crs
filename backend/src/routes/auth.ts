@@ -1,12 +1,12 @@
 import express from 'express';
-import { prisma } from '../index';
+import { prisma } from '../index.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
-import { authMiddleware, requirePermission } from '../middleware/auth';
+import { authMiddleware, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'ems-super-secret-2026';

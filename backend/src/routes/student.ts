@@ -1,8 +1,8 @@
 import express from 'express';
-import { prisma } from '../index';
-import { authMiddleware, requirePermission, selfOrPerm } from '../middleware/auth';
-import { normalizeNumbers, smartFilter } from '../utils/searchEngine';
-import { checkOverlap, daysOverlap } from './section';
+import { prisma } from '../index.js';
+import { authMiddleware, requirePermission, selfOrPerm } from '../middleware/auth.js';
+import { normalizeNumbers, smartFilter } from '../utils/searchEngine.js';
+import { checkOverlap, daysOverlap } from './section.js';
 
 const router = express.Router();
 

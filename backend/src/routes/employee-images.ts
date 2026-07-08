@@ -2,9 +2,9 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { prisma } from '../index';
-import { authMiddleware, requirePermission } from '../middleware/auth';
-import { compressImageBuffer } from '../utils/imageCompress';
+import { prisma } from '../index.js';
+import { authMiddleware, requirePermission } from '../middleware/auth.js';
+import { compressImageBuffer } from '../utils/imageCompress.js';
 
 const router = express.Router();
 

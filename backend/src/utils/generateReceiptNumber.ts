@@ -1,4 +1,4 @@
-import { prisma } from '../index';
+import { prisma } from '../index.js';
 
 export async function generateReceiptNumber(type: 'RECEIPT' | 'PAYMENT' = 'RECEIPT'): Promise<string> {
   const now = new Date();
