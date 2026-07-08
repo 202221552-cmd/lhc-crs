@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
     "build": "tsc --noEmit",
-    "dev": "tsx watch src/index.ts",
+    "tsdev": "tsx watch src/index.ts",
     "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
