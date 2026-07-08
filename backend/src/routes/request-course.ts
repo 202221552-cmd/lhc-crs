@@ -28,14 +28,14 @@ router.post('/', authMiddleware, requirePermission('students.add'), async (req, 
 
 router.put('/:id', authMiddleware, requirePermission('sections.assign'), async (req, res) => {
   try {
-    const rc = await prisma.requestedCourse.update({ where: { id: req.params.id }, data: { status: req.body.status } });
+    const rc = await prisma.requestedCourse.update({ where: { id: parseInt(req.params.id as string) }, data: { status: req.body.status } });
     res.json(rc);
   } catch { res.status(400).json({ error: 'فشل تحديث الطلب' }); }
 });
 
 router.delete('/:id', authMiddleware, requirePermission('students.edit'), async (req, res) => {
   try {
-    await prisma.requestedCourse.delete({ where: { id: req.params.id } });
+    await prisma.requestedCourse.delete({ where: { id: parseInt(req.params.id as string) } });
     res.json({ success: true });
   } catch { res.status(400).json({ error: 'فشل حذف الطلب' }); }
 });

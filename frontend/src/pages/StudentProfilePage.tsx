@@ -1,24 +1,71 @@
-import React, { useState } from 'react';
-import { Search, User, FileText, Calendar, CreditCard, BookOpen, GraduationCap } from 'lucide-react';
-import { useApi } from '../context/AuthContext';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, User, FileText, Calendar, CreditCard, GraduationCap, Printer, Filter, Image, MessageCircle } from 'lucide-react';
+import { useApi, useAuth, fileUrl } from '../context/AuthContext';
+import { DeepSearchModal } from '../components/DeepSearchModal';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useChat } from '../context/ChatContext';
+import { useSearchParams } from 'react-router-dom';
+
+const DAY_ABBR: Record<string, string> = {
+  SAT: 'السبت', SUN: 'الأحد', MON: 'الإثنين', TUE: 'الثلاثاء',
+  WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة',
+  saturday: 'السبت', sunday: 'الأحد', monday: 'الإثنين', tuesday: 'الثلاثاء',
+  wednesday: 'الأربعاء', thursday: 'الخميس', friday: 'الجمعة',
+};
+
+const getDayName = (d: string | Date) => {
+  try {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    return DAY_ABBR[date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()] || '';
+  } catch { return ''; }
+};
+
+const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  value ? <span><span style={{ color: 'var(--text-muted)' }}>{label}: </span><strong>{value}</strong></span> : null
+);
+
+const formatDays = (days: any) => {
+  if (!days) return '—';
+  try {
+    const d = typeof days === 'string' ? JSON.parse(days) : days;
+    if (Array.isArray(d)) return d.map((day: string) => DAY_ABBR[day.trim().toUpperCase()] || day).join('، ');
+    return String(d);
+  } catch { return String(days); }
+};
 
 export const StudentProfilePage = () => {
   const { apiFetch } = useApi();
+  const { centerName, centerLogo } = useAuth();
+  const { setPendingShareStudent, setOpen } = useChat();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isDeepOpen, setIsDeepOpen] = useState(false);
+  const [showCard, setShowCard] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+  const [printSections, setPrintSections] = useState({ subs: true, installments: true, notes: true, schedule: true, attendance: true });
+
+  const togglePrintSection = (key: string) => setPrintSections(prev => ({ ...prev, [key]: !prev[key] }));
+  const getPhone = (p: any) => { try { return (typeof p === 'string' ? JSON.parse(p) : p)?.[0] || '—'; } catch { return '—'; } };
+  const getSections = () => selectedStudent?.sections || [];
+  const getAttendances = () => selectedStudent?.attendances || [];
+  const getActiveSections = () => getSections().filter((ss: any) => ss.status !== 'TRANSFERRED' && ss.status !== 'WITHDRAWN');
+  const secToDisplay = (ss: any) => ss.section || ss;
+  const transferLog = selectedStudent?.transferLogs || [];
+  const getTransferDate = (sectionId: number, isCurrent: boolean) => {
+    if (isCurrent) return null;
+    const log = transferLog.find((l: any) => l.fromSectionId === sectionId);
+    return log ? log.transferredAt : null;
+  };
 
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
     if (q.length < 2) { setShowDropdown(false); return; }
-    try {
-      const res = await apiFetch(`/students?query=${encodeURIComponent(q)}&limit=8`);
-      setSearchResults(Array.isArray(res) ? res : (res.data || []));
-      setShowDropdown(true);
-    } catch {}
+    try { const res = await apiFetch(`/students?query=${encodeURIComponent(q)}&limit=8`); setSearchResults(Array.isArray(res) ? res : (res.data || [])); setShowDropdown(true); } catch { /* ignore */ }
   };
 
   const selectStudent = async (s: any) => {
@@ -27,164 +74,461 @@ export const StudentProfilePage = () => {
     setShowDropdown(false);
     setIsLoading(true);
     try {
-      const fin = await apiFetch(`/finances/student/${s.id}`);
+      const [full, fin] = await Promise.all([apiFetch(`/students/${s.id}`), apiFetch(`/financial/student/${s.id}`)]);
+      setSelectedStudent(full);
       setProfile(fin);
     } catch { setProfile(null); }
     finally { setIsLoading(false); }
   };
 
-  const getPhone = (phones: any) => {
-    try { return (typeof phones === 'string' ? JSON.parse(phones) : phones)?.[0] || '—'; } catch { return '—'; }
+  const handleDeepSearch = (student: any) => { selectStudent(student); setIsDeepOpen(false); };
+
+  // Auto-select student from shared link
+  const shareId = searchParams.get('shareId');
+  useEffect(() => {
+    if (shareId) {
+      apiFetch(`/students/${shareId}`).then(s => { if (s) selectStudent(s); }).catch(() => {});
+    }
+  }, [shareId]);
+
+  const handleShare = () => {
+    if (!selectedStudent) return;
+    setPendingShareStudent({
+      id: selectedStudent.id,
+      fullNameAr: selectedStudent.fullNameAr,
+    });
+    setOpen(true);
   };
 
   const ins = profile?.installments || [];
   const paid = ins.filter((i: any) => i.status === 'PAID').reduce((s: number, i: any) => s + i.paidAmount, 0);
   const remaining = ins.filter((i: any) => i.status !== 'PAID').reduce((s: number, i: any) => s + i.remainingAmount, 0);
 
-  return (
-    <div className="grid-2" style={{ gap: 28 }}>
-      {/* Search Column */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div className="glass-panel">
-          <h3 style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Search size={20} color="var(--secondary-color)" /> البحث عن طالب
-          </h3>
-          <div style={{ position: 'relative' }}>
-            <input type="text" className="glass-input"
-              placeholder="ابحث بالاسم أو الهاتف..."
-              value={searchQuery}
-              onChange={e => handleSearch(e.target.value)}
-            />
-            {showDropdown && searchResults.length > 0 && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, left: 0, zIndex: 100, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, maxHeight: 220, overflowY: 'auto', backdropFilter: 'blur(20px)', marginTop: 4 }}>
-                {searchResults.map(s => (
-                  <div key={s.id} onClick={() => selectStudent(s)}
-                    style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: 10 }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-light)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <User size={14} color="var(--primary-color)" />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.fullNameAr}</div>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>+962 {getPhone(s.phones)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+  const subs = [
+    ...(selectedStudent?.diplomaSubscriptions || []).map((s: any) => ({ ...s, _type: 'diploma' })),
+    ...(selectedStudent?.courseSubscriptions || []).map((s: any) => ({ ...s, _type: 'course' })),
+  ];
 
-          {selectedStudent && (
-            <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--primary-light)', border: '1px solid var(--primary-color)', borderRadius: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
-                  👤
+  const secList = getSections();
+  const attList = getAttendances();
+
+  const attGrouped: Record<string, any[]> = {};
+  attList.forEach((a: any) => { if (!attGrouped[a.sectionId]) attGrouped[a.sectionId] = []; attGrouped[a.sectionId].push(a); });
+  const attStats = (secId: string) => {
+    const rows = attGrouped[secId] || [];
+    const total = rows.length;
+    const present = rows.filter((r: any) => r.status === 'present').length;
+    const absent = rows.filter((r: any) => r.status === 'absent').length;
+    const late = rows.filter((r: any) => r.status === 'late').length;
+    const excused = rows.filter((r: any) => r.status === 'excused').length;
+    return { total, present, absent, late, excused, pct: total ? Math.round((present / total) * 100) : 0 };
+  };
+
+  const buildPrintHTML = () => {
+    const s = selectedStudent;
+    if (!s) return '';
+    let html = '';
+    html += `<div class="section"><h4>المعلومات الشخصية</h4><table><tr><th>الاسم</th><td>${s.fullNameAr || ''}</td><th>الهاتف</th><td>0${getPhone(s.phones)}</td></tr>
+      <tr><th>الحالة</th><td>${s.status === 'ACTIVE' ? 'مستمر' : s.status || ''}</td>
+      ${s.fullNameEn ? `<th>الاسم (إنج)</th><td>${s.fullNameEn}</td>` : '<td></td><td></td>'}
+      </tr>${s.email ? `<tr><th>البريد</th><td colspan="3">${s.email}</td></tr>` : ''}
+      ${s.address ? `<tr><th>العنوان</th><td colspan="3">${s.address}</td></tr>` : ''}
+      ${s.birthDate ? `<tr><th>تاريخ الميلاد</th><td colspan="3">${new Date(s.birthDate).toLocaleDateString('ar-JO')}</td></tr>` : ''}
+    </table></div>`;
+    if (printSections.schedule) { const secs = getActiveSections(); if (secs.length) {
+      const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('ar-JO', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+      const fmtEnroll = (item: any) => item.enrollDate ? fmtDate(item.enrollDate) : '—';
+      const fmtEnd = (item: any) => {
+        const sec2 = secToDisplay(item);
+        const isCur = item.status === 'ENROLLED' || item.status === 'ACTIVE';
+        const td = getTransferDate(sec2.id, isCur);
+        return td ? fmtDate(td) : isCur ? 'الآن' : '—';
+      };
+      html += `<div class="section"><h4>الجدول الدراسي</h4><table><thead><tr><th>المادة</th><th>رقم الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th><th>المدرب</th></tr></thead><tbody>`;
+      secs.forEach((item: any) => { const sec = secToDisplay(item); html += `<tr><td>${sec.course?.name || sec.diploma?.name || '—'}</td><td>${sec.name || '—'}</td><td>${formatDays(sec.days)}</td><td>${sec.startTime && sec.endTime ? sec.startTime + ' - ' + sec.endTime : '—'}</td><td>${sec.room?.name || '—'}</td><td>${sec.instructor?.name || '—'}</td></tr>`; });
+      html += `</tbody></table></div>`; }
+    }
+    const printSubs = [
+      ...(s?.diplomaSubscriptions || []),
+      ...(s?.courseSubscriptions || []),
+    ];
+    if (printSections.subs && printSubs.length) {
+      html += `<div class="section"><h4>الاشتراكات</h4><table><thead><tr><th>النوع</th><th>الاشتراك</th><th>التكلفة</th></tr></thead><tbody>`;
+      printSubs.forEach((sub: any) => { const type = sub.diploma ? 'دبلوم' : 'دورة'; html += `<tr><td>${type}</td><td>${sub.diploma?.name || sub.course?.name || 'اشتراك'}</td><td>${sub.totalCost?.toFixed(3)} د</td></tr>`; });
+      html += `</tbody></table></div>`;
+    }
+    const ins = profile?.installments || [];
+    if (printSections.installments && ins.length) {
+      html += `<div class="section"><h4>جدول الأقساط</h4><table><thead><tr><th>القسط</th><th>المبلغ</th><th>تاريخ الاستحقاق</th><th>الحالة</th></tr></thead><tbody>`;
+      ins.forEach((inst: any) => { const st = inst.status === 'PAID' ? 'مدفوع' : inst.status === 'OVERDUE' ? 'متأخر' : 'معلق'; const cls = inst.status === 'PAID' ? 'success' : inst.status === 'OVERDUE' ? 'danger' : 'warning'; html += `<tr><td>${inst.installmentNumber}</td><td>${inst.amount?.toFixed(3)} د</td><td>${new Date(inst.dueDate).toLocaleDateString('ar-JO')}</td><td><span class="badge ${cls}">${st}</span></td></tr>`; });
+      html += `</tbody></table></div>`;
+    }
+    if (printSections.attendance) { const secs = getSections(); if (secs.length) {
+      const atts = getAttendances();
+      const pGrouped: Record<string, any[]> = {}; atts.forEach((a: any) => { if (!pGrouped[a.sectionId]) pGrouped[a.sectionId] = []; pGrouped[a.sectionId].push(a); });
+      const pStats = (secId: string) => { const rows = pGrouped[secId] || []; const total = rows.length; const present = rows.filter((r: any) => r.status === 'present').length; const absent = rows.filter((r: any) => r.status === 'absent').length; const late = rows.filter((r: any) => r.status === 'late').length; const excused = rows.filter((r: any) => r.status === 'excused').length; return { total, present, absent, late, excused, pct: total ? Math.round((present / total) * 100) : 0 }; };
+      const pFmtDate = (d: any) => d ? new Date(d).toLocaleDateString('ar-JO', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+      html += `<div class="section"><h4>الحضور والغياب</h4><table><thead><tr><th>المادة</th><th>رقم الشعبة</th><th>الأيام</th><th>الوقت</th><th>من تاريخ</th><th>إلى تاريخ</th><th>عدد أيام الدوام</th><th>الحضور</th><th>الغياب</th><th>نسبة الحضور</th></tr></thead><tbody>`;
+      secs.forEach((item: any) => { const sec = secToDisplay(item); const st = pStats(String(sec.id)); const enroll = item.enrollDate ? pFmtDate(item.enrollDate) : '—'; const isCur = item.status === 'ENROLLED' || item.status === 'ACTIVE'; const td = getTransferDate(sec.id, isCur); const end = td ? pFmtDate(td) : (isCur ? 'الآن' : '—'); html += `<tr><td>${sec.course?.name || sec.diploma?.name || '—'}</td><td>${sec.name || '—'}</td><td>${formatDays(sec.days)}</td><td>${sec.startTime && sec.endTime ? sec.startTime + ' - ' + sec.endTime : '—'}</td><td>${enroll}</td><td>${end}</td><td>${st.total}</td><td>${st.present}</td><td>${st.absent + st.late}</td><td>${st.total ? st.pct + '%' : '—'}</td></tr>`; });
+      html += `</tbody></table></div>`; }
+    }
+    if (printSections.notes && s.notes) { html += `<div class="section"><h4>ملاحظات</h4><p>${s.notes}</p></div>`; }
+    return html;
+  };
+
+  const handlePrint = () => {
+    const content = buildPrintHTML();
+    if (!content) { alert('لا توجد أقسام محددة للطباعة'); return; }
+    const w = window.open('', '_blank', 'width=800,height=600');
+    if (!w) return;
+    const s = selectedStudent;
+    w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><style>
+      @page { size: A4; margin: 15mm; }
+      body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #333; background: #fff; }
+      .section { margin-bottom: 12px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+      .section h4 { margin: 0 0 8px 0; font-size: 13px; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      th, td { padding: 6px 8px; border: 1px solid #ddd; text-align: center; }
+      th { background: #f5f5f5; font-weight: 600; }
+      .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; }
+      .badge.success { background: #d4edda; color: #155724; }
+      .badge.danger { background: #f8d7da; color: #721c24; }
+      .badge.warning { background: #fff3cd; color: #856404; }
+      .print-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+      .print-header .logo { width: 80px; height: 80px; object-fit: contain; }
+      .print-header .center-info { text-align: left; }
+      .print-header .center-info h1 { margin: 0; font-size: 16px; color: #333; }
+      .print-header .center-info p { margin: 4px 0 0; font-size: 11px; color: #888; }
+      .header-card { text-align: center; margin-bottom: 16px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+      .header-card h2 { margin: 0 0 4px 0; }
+      .header-card p { margin: 0; color: #666; }
+    </style></head><body>
+    <div class="print-header">
+      <div>${centerLogo ? `<img class="logo" src="${fileUrl(centerLogo)}" alt="Logo" />` : '<div style="width:80px"/>'}</div>
+      <div class="center-info">
+        <h1>${centerName || 'المركز التعليمي الحديث'}</h1>
+        <p>ملف الطالب — ${s?.fullNameAr || ''}</p>
+      </div>
+    </div>
+    <div class="header-card"><h2>${s?.fullNameAr || ''}</h2><p>0${s ? getPhone(s.phones) : ''}</p></div>${content}</body></html>`);
+    w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+  };
+
+  const tdStyle = { padding: '7px 10px', border: '1px solid var(--glass-border)', textAlign: 'center' as const, fontSize: '0.8rem' };
+  const thStyle = { ...tdStyle, background: 'var(--primary-light)', fontWeight: 600 };
+
+  return (
+    <ErrorBoundary>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 280px', position: 'relative' }}>
+              <input type="text" className="glass-input" placeholder="ابحث بالاسم أو الهاتف..." value={searchQuery}
+                onChange={e => handleSearch(e.target.value)} />
+              {showDropdown && searchResults.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, left: 0, zIndex: 100, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, maxHeight: 220, overflowY: 'auto', backdropFilter: 'blur(20px)', marginTop: 4 }}>
+                  {searchResults.map(s => (
+                    <div key={s.id} onClick={() => selectStudent(s)}
+                      style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <User size={14} color="var(--primary-color)" />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.fullNameAr}</div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>0{getPhone(s.phones)}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+            </div>
+            <button className="glass-btn" onClick={() => setIsDeepOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+              <Search size={16} /> بحث عميق
+            </button>
+          </div>
+        </div>
+
+        {selectedStudent && (
+          <div className="glass-panel" style={{ padding: '18px 22px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>👤</div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedStudent.fullNameAr}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>+962 {getPhone(selectedStudent.phones)}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>0{getPhone(selectedStudent.phones)}</div>
                   <span className={`badge ${selectedStudent.status === 'ACTIVE' ? 'success' : 'danger'}`} style={{ fontSize: '0.72rem' }}>
                     {selectedStudent.status === 'ACTIVE' ? 'مستمر' : selectedStudent.status}
                   </span>
                 </div>
               </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="glass-btn secondary" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Printer size={15} /> طباعة A4
+                </button>
+                <button className="glass-btn secondary" onClick={() => setShowCard(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Image size={15} /> بطاقة الطالب
+                </button>
+                <button className="glass-btn secondary" onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <MessageCircle size={15} /> مشاركة
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Financial Summary */}
-        {profile && (
-          <div className="glass-panel" style={{ padding: '18px 22px' }}>
-            <h4 style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CreditCard size={16} color="var(--success)" /> الملخص المالي
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>إجمالي المدفوع:</span>
-                <strong style={{ color: 'var(--success)' }}>{paid.toFixed(3)} د</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>المتبقي:</span>
-                <strong style={{ color: remaining > 0 ? 'var(--danger)' : 'var(--success)' }}>{remaining.toFixed(3)} د</strong>
-              </div>
-              <div style={{ height: 1, background: 'var(--glass-border)', margin: '4px 0' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>عدد الأقساط:</span>
-                <strong>{ins.length}</strong>
-              </div>
+            <div style={{ height: 1, background: 'var(--glass-border)', margin: '12px 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Filter size={15} color="var(--secondary-color)" />
+              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>أقسام الطباعة:</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <span style={{ padding: '5px 12px', borderRadius: 8, fontSize: '0.82rem', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <User size={13} /> المعلومات الشخصية <span style={{ opacity: 0.5 }}>•</span> إلزامي
+              </span>
+              {[{ key: 'schedule', label: 'الجدول الدراسي', icon: <Calendar size={13} /> },
+                { key: 'subs', label: 'الاشتراكات', icon: <GraduationCap size={13} /> },
+                { key: 'installments', label: 'جدول الأقساط', icon: <CreditCard size={13} /> },
+                { key: 'attendance', label: 'الحضور والغياب', icon: <Calendar size={13} /> },
+                { key: 'notes', label: 'الملاحظات', icon: <FileText size={13} /> }
+              ].map(s => {
+                const active = printSections[s.key as keyof typeof printSections];
+                return (
+                  <label key={s.key} onClick={() => togglePrintSection(s.key)}
+                    style={{
+                      padding: '5px 12px', borderRadius: 8, fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none',
+                      display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.2s',
+                      background: active ? 'var(--primary)' : 'var(--glass-bg)',
+                      color: active ? '#fff' : 'var(--text-color)',
+                      border: active ? '1px solid var(--primary)' : '1px solid var(--glass-border)',
+                      boxShadow: active ? '0 2px 8px rgba(59,130,246,0.25)' : 'none',
+                    }}>
+                    {s.icon} {s.label}
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ height: 1, background: 'var(--glass-border)', margin: '10px 0' }} />
+            <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.85rem' }}><span style={{ color: 'var(--text-muted)' }}>إجمالي المدفوع: </span><strong style={{ color: 'var(--success)' }}>{paid.toFixed(3)} د</strong></div>
+              <div style={{ fontSize: '0.85rem' }}><span style={{ color: 'var(--text-muted)' }}>المتبقي: </span><strong style={{ color: remaining > 0 ? 'var(--danger)' : 'var(--success)' }}>{remaining.toFixed(3)} د</strong></div>
+              <div style={{ fontSize: '0.85rem' }}><span style={{ color: 'var(--text-muted)' }}>عدد الأقساط: </span><strong>{ins.length}</strong></div>
             </div>
           </div>
         )}
-      </div>
-
-      {/* Profile Column */}
-      <div className="glass-panel" style={{ opacity: selectedStudent ? 1 : 0.5, pointerEvents: selectedStudent ? 'auto' : 'none' }}>
-        <h3 style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <FileText size={22} color="var(--primary-color)" /> الملف الكامل للطالب
-        </h3>
 
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: 40, opacity: 0.5 }}>جارٍ تحميل البيانات...</div>
+          <div className="glass-panel" style={{ textAlign: 'center', padding: 40, opacity: 0.5 }}>جارٍ تحميل البيانات...</div>
         ) : !selectedStudent ? (
-          <div style={{ textAlign: 'center', padding: 40, opacity: 0.4 }}>
-            <Search size={40} style={{ marginBottom: 10 }} />
-            <p>ابحث عن طالب لعرض ملفه</p>
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '60px 40px', opacity: 0.4 }}>
+            <Search size={48} style={{ marginBottom: 12 }} />
+            <p style={{ fontSize: '1rem' }}>ابحث عن طالب لعرض ملفه</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Subscriptions */}
-            <div style={{ background: 'var(--card-bg)', padding: '14px 16px', borderRadius: 10 }}>
-              <h4 style={{ marginBottom: 10, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <GraduationCap size={15} color="var(--secondary-color)" /> الاشتراكات
+          <div ref={printRef} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="glass-panel" style={{ padding: '18px 22px' }}>
+              <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}>
+                <User size={17} color="var(--primary-color)" /> المعلومات الشخصية
               </h4>
-              {profile?.subscriptions?.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {profile.subscriptions.map((sub: any) => (
-                    <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '6px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                      <span>{sub.diploma?.name || sub.course?.name || 'اشتراك'}</span>
-                      <span style={{ color: 'var(--success)' }}>{sub.totalCost?.toFixed(3)} د</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>لا توجد اشتراكات بعد</p>
-              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px 28px', fontSize: '0.85rem', lineHeight: 1.8 }}>
+                <Field label="الاسم (عربي)" value={selectedStudent.fullNameAr} />
+                <Field label="الهاتف" value={`0${getPhone(selectedStudent.phones)}`} />
+                <Field label="رقم الطالب" value={selectedStudent.id} />
+                <Field label="تاريخ الميلاد" value={selectedStudent.birthDate ? new Date(selectedStudent.birthDate).toLocaleDateString('ar-JO') : null} />
+                <Field label="الجنس" value={selectedStudent.gender === 'MALE' ? 'ذكر' : selectedStudent.gender === 'FEMALE' ? 'أنثى' : null} />
+                <Field label="الجنسية" value={selectedStudent.nationality === 'JO' ? 'أردني' : selectedStudent.nationality === 'OTHER' ? 'غير أردني' : selectedStudent.nationality} />
+                {selectedStudent.fullNameEn && <Field label="الاسم (إنج)" value={selectedStudent.fullNameEn} />}
+                {selectedStudent.email && <Field label="البريد" value={selectedStudent.email} />}
+                {(selectedStudent.nationalId || selectedStudent.passportId || selectedStudent.personalId) && (
+                  <Field label="الرقم الوطني" value={selectedStudent.nationalId || selectedStudent.passportId || selectedStudent.personalId} />
+                )}
+                {selectedStudent.address && <Field label="العنوان" value={selectedStudent.address} />}
+                {selectedStudent.governorate && <Field label="المحافظة" value={selectedStudent.governorate} />}
+                <Field label="صفة الطالب" value={
+                  selectedStudent.studentType === 'UNIVERSITY' ? 'طالب جامعة' :
+                  selectedStudent.studentType === 'HIGH_SCHOOL' ? 'طالب ثانوي' :
+                  selectedStudent.studentType === 'EMPLOYEE' ? 'موظف' :
+                  selectedStudent.studentType === 'OTHER' ? 'غير ذلك' : selectedStudent.studentType
+                } />
+                {selectedStudent.universityName && <Field label="الجامعة" value={selectedStudent.universityName} />}
+                {selectedStudent.universityId && <Field label="الرقم الجامعي" value={selectedStudent.universityId} />}
+                <Field label="الحالة" value={selectedStudent.status === 'ACTIVE' ? 'مستمر' : selectedStudent.status === 'POSTPONED' ? 'مؤجل' : selectedStudent.status === 'WITHDRAWN' ? 'منسحب' : selectedStudent.status === 'CANCELED' ? 'ملغي' : selectedStudent.status === 'FINISHED' ? 'أنهى الدراسة' : selectedStudent.status} />
+                {selectedStudent.markerEmployee?.fullName && <Field label="المسوّق" value={selectedStudent.markerEmployee.fullName} />}
+                {selectedStudent.registrationDate && <Field label="تاريخ التسجيل" value={new Date(selectedStudent.registrationDate).toLocaleDateString('ar-JO')} />}
+              </div>
             </div>
 
-            {/* Installments */}
-            <div style={{ background: 'var(--card-bg)', padding: '14px 16px', borderRadius: 10 }}>
-              <h4 style={{ marginBottom: 10, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <CreditCard size={15} color="var(--warning)" /> جدول الأقساط
+            {secList.length > 0 && printSections.schedule && (
+              <div className="glass-panel" style={{ padding: '18px 22px' }}>
+                <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}>
+                  <Calendar size={17} color="var(--secondary-color)" /> الجدول الدراسي
+                </h4>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                    <thead><tr><th style={thStyle}>المادة</th><th style={thStyle}>رقم الشعبة</th><th style={thStyle}>الأيام</th><th style={thStyle}>الوقت</th><th style={thStyle}>القاعة</th><th style={thStyle}>المدرب</th></tr></thead>
+                    <tbody>{getActiveSections().map((item: any) => {
+                      const sec = secToDisplay(item);
+                      return (
+                      <tr key={sec.id}>
+                        <td style={tdStyle}>{sec.course?.name || sec.diploma?.name || '—'}</td>
+                        <td style={tdStyle}>{sec.name || '—'}</td>
+                        <td style={tdStyle}>{formatDays(sec.days)}</td>
+                        <td style={tdStyle}>{sec.startTime && sec.endTime ? `${sec.startTime} - ${sec.endTime}` : '—'}</td>
+                      <td style={tdStyle}>{sec.room?.name || '—'}</td>
+                      <td style={tdStyle}>{sec.instructor?.name || '—'}</td>
+                      </tr>
+                    )})}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {printSections.subs && (
+            <div className="glass-panel" style={{ padding: '18px 22px' }}>
+              <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}>
+                <GraduationCap size={17} color="var(--secondary-color)" /> الاشتراكات
+              </h4>
+              {subs.length > 0 ? (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead><tr><th style={thStyle}>النوع</th><th style={thStyle}>الاشتراك</th><th style={thStyle}>التكلفة</th></tr></thead>
+                  <tbody>{subs.map((sub: any) => (
+                    <tr key={sub.id}>
+                      <td style={tdStyle}><span className="badge" style={{ background: sub._type === 'diploma' ? 'var(--primary-light)' : 'var(--secondary-light)', color: sub._type === 'diploma' ? 'var(--primary)' : 'var(--secondary)', fontSize: '0.75rem' }}>{sub._type === 'diploma' ? 'دبلوم' : 'دورة'}</span></td>
+                      <td style={tdStyle}>{sub.diploma?.name || sub.course?.name || 'اشتراك'}</td>
+                      <td style={{ ...tdStyle, color: 'var(--success)', fontWeight: 600 }}>{sub.totalCost?.toFixed(3)} د</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px 0', opacity: 0.4 }}>
+                  <GraduationCap size={32} style={{ marginBottom: 8 }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>لا توجد اشتراكات بعد</p>
+                </div>
+              )}
+            </div>
+            )}
+
+            {printSections.installments && (
+            <div className="glass-panel" style={{ padding: '18px 22px' }}>
+              <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}>
+                <CreditCard size={17} color="var(--warning)" /> جدول الأقساط
               </h4>
               {ins.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {ins.slice(0, 8).map((inst: any) => (
-                    <div key={inst.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '5px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>قسط {inst.installmentNumber}</span>
-                      <span>{inst.amount?.toFixed(3)} د</span>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(inst.dueDate).toLocaleDateString('ar-JO')}</span>
-                      <span className={`badge ${inst.status === 'PAID' ? 'success' : inst.status === 'OVERDUE' ? 'danger' : 'warning'}`} style={{ fontSize: '0.7rem' }}>
-                        {inst.status === 'PAID' ? 'مدفوع' : inst.status === 'OVERDUE' ? 'متأخر' : 'معلق'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>لا توجد أقساط</p>
-              )}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead><tr><th style={thStyle}>القسط</th><th style={thStyle}>المبلغ</th><th style={thStyle}>تاريخ الاستحقاق</th><th style={thStyle}>الحالة</th></tr></thead>
+                  <tbody>{ins.slice(0, 8).map((inst: any) => (
+                    <tr key={inst.id}>
+                      <td style={tdStyle}>قسط {inst.installmentNumber}</td>
+                      <td style={tdStyle}>{inst.amount?.toFixed(3)} د</td>
+                      <td style={tdStyle}>{new Date(inst.dueDate).toLocaleDateString('ar-JO')}</td>
+                      <td style={tdStyle}>
+                        <span className={`badge ${inst.status === 'PAID' ? 'success' : inst.status === 'OVERDUE' ? 'danger' : 'warning'}`}>
+                          {inst.status === 'PAID' ? 'مدفوع' : inst.status === 'OVERDUE' ? 'متأخر' : 'معلق'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              ) : <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>لا توجد أقساط</p>}
             </div>
+            )}
 
-            {/* Notes */}
-            {selectedStudent.notes && (
-              <div style={{ background: 'var(--card-bg)', padding: '14px 16px', borderRadius: 10 }}>
-                <h4 style={{ marginBottom: 8, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <FileText size={15} color="var(--text-muted)" /> ملاحظات
+            {printSections.attendance && (
+            <div className="glass-panel" style={{ padding: '18px 22px' }}>
+                <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}>
+                  <Calendar size={17} color="var(--primary-color)" /> الحضور والغياب
                 </h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{selectedStudent.notes}</p>
+                {secList.length ? (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>المادة / الشعبة</th>
+                        <th style={thStyle}>رقم الشعبة</th>
+                        <th style={thStyle}>الأيام</th>
+                        <th style={thStyle}>الوقت</th>
+                        <th style={thStyle}>من تاريخ</th>
+                        <th style={thStyle}>إلى تاريخ</th>
+                        <th style={thStyle}>عدد أيام الدوام</th>
+                        <th style={thStyle}>الحضور</th>
+                        <th style={thStyle}>الغياب</th>
+                        <th style={thStyle}>نسبة الحضور</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {secList.map((item: any) => {
+                        const sec = secToDisplay(item);
+                        const st = attStats(String(sec.id));
+                        const enrollDate = item.enrollDate;
+                        const isCurrent = item.status === 'ENROLLED' || item.status === 'ACTIVE';
+                        const transferDate = getTransferDate(sec.id, isCurrent);
+                        return (
+                          <tr key={sec.id}>
+                            <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
+                              {sec.course?.name || sec.diploma?.name || '—'}
+                            </td>
+                            <td style={tdStyle}>{sec.name || '—'}</td>
+                            <td style={tdStyle}>{formatDays(sec.days)}</td>
+                            <td style={tdStyle}>{sec.startTime && sec.endTime ? `${sec.startTime} - ${sec.endTime}` : '—'}</td>
+                            <td style={{ ...tdStyle, whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
+                              {enrollDate ? new Date(enrollDate).toLocaleDateString('ar-JO', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+                            </td>
+                            <td style={{ ...tdStyle, whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
+                              {transferDate ? new Date(transferDate).toLocaleDateString('ar-JO', { year: 'numeric', month: 'short', day: 'numeric' }) : isCurrent ? 'الآن' : '—'}
+                            </td>
+                            <td style={tdStyle}>{st.total}</td>
+                            <td style={tdStyle}>{st.present}</td>
+                            <td style={tdStyle}>{st.absent + st.late}</td>
+                            <td style={tdStyle}>
+                              <span style={{ color: st.total ? (st.pct >= 75 ? 'var(--success-color)' : 'var(--danger-color)') : 'var(--text-muted)', fontWeight: 600 }}>
+                                {st.total ? `${st.pct}%` : '—'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '20px 0', opacity: 0.4 }}>
+                    <Calendar size={32} style={{ marginBottom: 8 }} />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>لا توجد شعب مسجلة للطالب</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {printSections.notes && (
+            <div className="glass-panel" style={{ padding: '18px 22px' }}>
+                <h4 style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.95rem' }}>
+                  <FileText size={17} color="var(--text-muted)" /> ملاحظات
+                </h4>
+                {selectedStudent.notes ? (
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>{selectedStudent.notes}</p>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '12px 0', opacity: 0.35 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>لا توجد ملاحظات</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
+
+        <DeepSearchModal isOpen={isDeepOpen} onClose={() => setIsDeepOpen(false)} onSearch={() => {}} onSelectStudent={handleDeepSearch} />
+        {showCard && selectedStudent && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setShowCard(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, width: 340, color: '#333', textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 8 }}>🎓</div>
+              <h2 style={{ margin: '0 0 4px', fontSize: '1.1rem' }}>{selectedStudent.fullNameAr}</h2>
+              <p style={{ margin: '0 0 12px', color: '#666', fontSize: '0.85rem' }}>0{getPhone(selectedStudent.phones)}</p>
+              <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '8px 0' }} />
+              <div style={{ textAlign: 'right', fontSize: '0.82rem', lineHeight: 2 }}>
+                <div><strong>الحالة:</strong> {selectedStudent.status === 'ACTIVE' ? 'مستمر' : selectedStudent.status}</div>
+                {selectedStudent.email && <div><strong>البريد:</strong> {selectedStudent.email}</div>}
+                {selectedStudent.birthDate && <div><strong>تاريخ الميلاد:</strong> {new Date(selectedStudent.birthDate).toLocaleDateString('ar-JO')}</div>}
+                {selectedStudent.address && <div><strong>العنوان:</strong> {selectedStudent.address}</div>}
+                {secList.length > 0 && <div><strong>المسجل في:</strong> {secList.map((s: any) => s.course?.name || s.diploma?.name).join('، ')}</div>}
+              </div>
+              <button className="glass-btn" style={{ marginTop: 16, width: '100%' }} onClick={() => setShowCard(false)}>إغلاق</button>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };

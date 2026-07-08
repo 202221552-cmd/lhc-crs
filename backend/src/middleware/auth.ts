@@ -54,3 +54,26 @@ export const requirePermission = (permissionName: string) => {
     next();
   };
 };
+
+// Allow access if user has the required permission OR is a student accessing their own data
+export const selfOrPerm = (permissionName: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'غير مصرح' });
+
+    const permKeys = user.permissions.map((p: any) => p.permission.name);
+    if (permKeys.includes('ADMIN_ALL') || permKeys.includes(permissionName) || user.role === 'ADMIN') {
+      return next();
+    }
+
+    // Allow student role to access own data
+    if (user.role === 'STUDENT' && user.studentId) {
+      const targetIds = [(req.params.id as string), (req.params.studentId as string), req.query.studentId].filter(Boolean).map(String);
+      if (targetIds.some(id => id === user.studentId)) {
+        return next();
+      }
+    }
+
+    return res.status(403).json({ error: 'ليس لديك صلاحية' });
+  };
+};

@@ -6,10 +6,27 @@ const router = express.Router();
 
 router.get('/', authMiddleware, requirePermission('sections.manage'), async (req, res) => {
   try {
+    const { status, entityId, categoryId, courseId, diplomaId } = req.query;
+    const where: any = {};
+    if (status) where.status = status as string;
+    if (courseId) where.courseId = courseId as string;
+    const courseFilter: any = {};
+    if (entityId) courseFilter.entityId = parseInt(entityId as string);
+    if (categoryId) courseFilter.categoryId = parseInt(categoryId as string);
+    if (diplomaId) {
+      const diplomaCourses = await prisma.diplomaCourse.findMany({
+        where: { diplomaId: diplomaId as string },
+        select: { courseId: true }
+      });
+      courseFilter.id = { in: diplomaCourses.map(dc => dc.courseId) };
+    }
+    if (Object.keys(courseFilter).length) where.course = courseFilter;
+
     const sections = await prisma.section.findMany({
+      where,
       include: {
-        course: true, room: true, instructor: true,
-        students: { include: { student: true } }
+        course: { include: { category: true } }, room: true, instructor: true,
+        _count: { select: { students: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -20,7 +37,7 @@ router.get('/', authMiddleware, requirePermission('sections.manage'), async (req
 router.get('/:id', authMiddleware, requirePermission('sections.manage'), async (req, res) => {
   try {
     const section = await prisma.section.findUnique({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id as string) },
       include: {
         course: true, room: true, instructor: true,
         students: { include: { student: true } },
@@ -32,30 +49,97 @@ router.get('/:id', authMiddleware, requirePermission('sections.manage'), async (
   } catch { res.status(500).json({ error: 'خطأ في جلب الشعبة' }); }
 });
 
-// Helper overlap checks
-const checkOverlap = (s1: string, e1: string, s2: string, e2: string) => s1 < e2 && e1 > s2;
-const daysOverlap = (d1str: string, d2str: string) => {
+// Helper overlap checks — exported for reuse
+export const checkOverlap = (s1: string, e1: string, s2: string, e2: string) => s1 < e2 && e1 > s2;
+export const daysOverlap = (d1str: string, d2str: string) => {
   try {
     const d1: string[] = JSON.parse(d1str), d2: string[] = JSON.parse(d2str);
     return d1.some(d => d2.includes(d));
   } catch { return false; }
 };
 
+router.get('/:id/conflicts', authMiddleware, requirePermission('sections.manage'), async (req, res) => {
+  try {
+    const section = await prisma.section.findUnique({
+      where: { id: parseInt(req.params.id as string) },
+      include: { course: true, room: true, instructor: true }
+    });
+    if (!section) return res.status(404).json({ error: 'الشعبة غير موجودة' });
+
+    const conflicts = await prisma.section.findMany({
+      where: {
+        id: { not: section.id },
+        status: 'OPEN',
+        OR: [
+          { roomId: section.roomId },
+          { instructorId: section.instructorId }
+        ]
+      },
+      include: { course: true, room: true, instructor: true, students: true }
+    });
+
+    const result = conflicts.filter(s => 
+      daysOverlap(section.days, s.days) && checkOverlap(section.startTime, section.endTime, s.startTime, s.endTime)
+    ).map(s => ({
+      id: s.id,
+      name: s.name,
+      courseName: s.course.name,
+      days: JSON.parse(s.days),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      roomName: s.room.name,
+      instructorName: s.instructor.name,
+      studentCount: s.students.length,
+      conflictType: s.roomId === section.roomId ? 'ROOM' : 'INSTRUCTOR'
+    }));
+
+    res.json(result);
+  } catch { res.status(500).json({ error: 'خطأ في جلب التعارضات' }); }
+});
+
 router.post('/', authMiddleware, requirePermission('sections.manage'), async (req, res) => {
-  const { courseId, roomId, instructorId, days, startTime, endTime, startDate, endDate, capacity, name } = req.body;
+  const { courseId, roomId, instructorId, days, startTime, endTime, startDate, endDate, capacity, name, maxAbsences } = req.body;
   if (!courseId || !roomId || !instructorId || !days || !startTime || !endTime) {
     return res.status(400).json({ error: 'جميع الحقول الإجبارية مطلوبة' });
   }
   try {
+    // Get course to auto-generate name
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) return res.status(404).json({ error: 'الدورة غير موجودة' });
+
+    // Auto-generate section name: "{courseName} {nextNumber}" if not provided
+    let sectionName = name;
+    if (!sectionName) {
+      // Find all existing sections for this course and extract numbers
+      const existing = await prisma.section.findMany({
+        where: { courseId },
+        select: { name: true },
+        orderBy: { createdAt: 'desc' }
+      });
+      const numbers = existing
+        .map(s => s.name ? parseInt(s.name.replace(/^.*\s+(\d+)$/, '$1')) : 0)
+        .filter(n => !isNaN(n) && n > 0);
+      const nextNumber = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+      sectionName = `${course.name} ${nextNumber}`;
+    } else {
+      // If user provided a name, check it doesn't conflict with a non-COMPLETED section
+      const conflict = await prisma.section.findFirst({
+        where: { courseId, name: sectionName, status: { notIn: ['COMPLETED', 'CLOSED'] } }
+      });
+      if (conflict) {
+        return res.status(409).json({ error: `يوجد شعبة بنفس الاسم "${sectionName}" غير منتهية. اختر رقماً آخر.` });
+      }
+    }
+
     // Room conflict check
-    const roomSections = await prisma.section.findMany({ where: { roomId, status: 'OPEN' } });
+    const roomSections = await prisma.section.findMany({ where: { roomId: parseInt(roomId), status: 'OPEN' } });
     for (const rs of roomSections) {
       if (daysOverlap(days, rs.days) && checkOverlap(startTime, endTime, rs.startTime, rs.endTime)) {
         return res.status(409).json({ error: `تعارض في القاعة مع الشعبة: ${rs.name || rs.id}` });
       }
     }
     // Instructor conflict check
-    const instSections = await prisma.section.findMany({ where: { instructorId, status: 'OPEN' } });
+    const instSections = await prisma.section.findMany({ where: { instructorId: parseInt(instructorId), status: 'OPEN' } });
     for (const is of instSections) {
       if (daysOverlap(days, is.days) && checkOverlap(startTime, endTime, is.startTime, is.endTime)) {
         return res.status(409).json({ error: `تعارض في جدول المدرّس مع الشعبة: ${is.name || is.id}` });
@@ -63,14 +147,31 @@ router.post('/', authMiddleware, requirePermission('sections.manage'), async (re
     }
     const section = await prisma.section.create({
       data: {
-        name: name || null, courseId, roomId, instructorId,
+        name: sectionName, courseId, roomId: parseInt(roomId), instructorId: parseInt(instructorId),
         days, startTime, endTime,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
-        capacity: parseInt(capacity) || 30
+        capacity: parseInt(capacity) || 30,
+        maxAbsences: parseInt(maxAbsences) || 3
       },
       include: { course: true, room: true, instructor: true }
     });
+
+    // Auto-create pending lecturer payment
+    const instructor = await prisma.instructor.findUnique({ where: { id: parseInt(instructorId) } });
+    if (instructor && instructor.courseRate > 0) {
+      await prisma.instructorPayment.upsert({
+        where: { instructorId_sectionId: { instructorId: parseInt(instructorId), sectionId: section.id } },
+        update: {},
+        create: {
+          instructorId: parseInt(instructorId),
+          sectionId: section.id,
+          courseId,
+          amount: instructor.courseRate,
+          status: 'PENDING'
+        }
+      });
+    }
 
     const actingUser = (req as any).user;
     await prisma.auditLog.create({
@@ -87,36 +188,127 @@ router.put('/:id', authMiddleware, requirePermission('sections.manage'), async (
     if (data.startDate) data.startDate = new Date(data.startDate);
     if (data.endDate) data.endDate = new Date(data.endDate);
     if (data.capacity) data.capacity = parseInt(data.capacity);
-    const section = await prisma.section.update({ where: { id: req.params.id }, data });
+    const section = await prisma.section.update({ where: { id: parseInt(req.params.id as string) }, data });
     res.json(section);
   } catch { res.status(400).json({ error: 'فشل تحديث الشعبة' }); }
 });
 
 router.delete('/:id', authMiddleware, requirePermission('sections.manage'), async (req, res) => {
   try {
-    await prisma.section.delete({ where: { id: req.params.id } });
+    await prisma.section.delete({ where: { id: parseInt(req.params.id as string) } });
     res.json({ success: true });
   } catch { res.status(400).json({ error: 'فشل حذف الشعبة' }); }
 });
 
-// Add student to section
+// Add student to section (with time conflict check)
 router.post('/:id/students', authMiddleware, requirePermission('sections.assign'), async (req, res) => {
   const { studentId } = req.body;
   if (!studentId) return res.status(400).json({ error: 'الطالب مطلوب' });
   try {
-    // Check capacity
     const section = await prisma.section.findUnique({
-      where: { id: req.params.id },
-      include: { students: true }
+      where: { id: parseInt(req.params.id as string) },
+      include: { course: true }
     });
     if (!section) return res.status(404).json({ error: 'الشعبة غير موجودة' });
-    if (section.students.length >= section.capacity) {
+    const enrolledCount = await prisma.studentSection.count({
+      where: { sectionId: section.id, status: 'ENROLLED' }
+    });
+    if (enrolledCount >= section.capacity) {
       return res.status(400).json({ error: 'الشعبة ممتلئة' });
     }
-    const ss = await prisma.studentSection.create({
-      data: { studentId, sectionId: req.params.id },
-      include: { student: true, section: { include: { course: true } } }
+
+    // Check time conflict with student's existing sections
+    const existingSections = await prisma.studentSection.findMany({
+      where: { studentId, status: 'ENROLLED', section: { status: 'OPEN' } },
+      include: { section: { include: { course: true } } }
     });
+    for (const es of existingSections) {
+      if (daysOverlap(section.days, es.section.days) && checkOverlap(section.startTime, section.endTime, es.section.startTime, es.section.endTime)) {
+        const courseName = es.section.course?.name || '';
+        return res.status(409).json({
+          error: `تعارض في الموعد: الطالب مسجل في شعبة "${es.section.name || es.section.id}" لدورة "${courseName}" (${es.section.days ? JSON.parse(es.section.days).join(' - ') : ''} ${es.section.startTime}-${es.section.endTime})`,
+          conflict: {
+            sectionId: es.section.id,
+            sectionName: es.section.name,
+            courseName,
+            days: JSON.parse(es.section.days || '[]'),
+            startTime: es.section.startTime,
+            endTime: es.section.endTime,
+          }
+        });
+      }
+    }
+
+    // Check min payment
+    const minPayment = section.course?.minPayment || 0;
+    if (minPayment > 0) {
+      // Check if student has diploma subscription whose diploma includes this course
+      const diplomaSubs = await prisma.diplomaSubscription.findMany({
+        where: { studentId, diploma: { courses: { some: { courseId: section.courseId } } } },
+        select: { id: true, diplomaId: true, minPaymentException: true }
+      });
+
+      let exempt = diplomaSubs.some(s => s.minPaymentException);
+
+      // If not exempt via exception, check if diploma min payment has been met
+      if (!exempt && diplomaSubs.length > 0) {
+        const dipSubIds = diplomaSubs.map(s => String(s.id));
+        const diplomaIds = diplomaSubs.map(s => s.diplomaId);
+        const [diplomaPaid, diplomas] = await Promise.all([
+          prisma.installment.aggregate({
+            where: { studentId, subscriptionId: { in: dipSubIds }, status: 'PAID' },
+            _sum: { amount: true }
+          }),
+          prisma.diploma.findMany({
+            where: { id: { in: diplomaIds }, courses: { some: { courseId: section.courseId } } },
+            select: { id: true, minPayment: true }
+          }),
+        ]);
+        const totalPaid = diplomaPaid._sum.amount || 0;
+        const diplomaMin = Math.max(...diplomas.map(d => d.minPayment), 0);
+        if (totalPaid >= diplomaMin) exempt = true;
+      }
+
+      if (!exempt) {
+        // Only check course min payment for non-diploma or unexempt students
+        const courseSubs = await prisma.courseSubscription.findMany({
+          where: { studentId, courseId: section.courseId, status: 'ACTIVE' },
+        select: { id: true, diplomaId: true, minPaymentException: true }
+        });
+        const hasException = courseSubs.some(s => s.minPaymentException);
+        if (!hasException) {
+          const subIds = courseSubs.map(s => String(s.id));
+          const paidInsts = await prisma.installment.findMany({
+            where: { studentId, subscriptionId: { in: subIds }, subscriptionType: 'COURSE', status: 'PAID' }
+          });
+          const paid = paidInsts.reduce((sum, inst) => sum + inst.amount, 0);
+          if (paid < minPayment) {
+            return res.status(400).json({
+              error: `لم يتم دفع الحد الأدنى (${minPayment} د). المدفوع: ${paid} د. يجب دفع ${minPayment - paid} د إضافية أو تفعيل استثناء الدفع`,
+              minPayment: { required: minPayment, paid, remaining: minPayment - paid }
+            });
+          }
+        }
+      }
+    }
+
+    // Check if student has existing record (e.g., TRANSFERRED) — reactivate instead of creating new
+    const existingSS = await prisma.studentSection.findUnique({
+      where: { studentId_sectionId: { studentId, sectionId: parseInt(req.params.id as string) } }
+    });
+    let ss;
+    if (existingSS) {
+      ss = await prisma.studentSection.update({
+        where: { studentId_sectionId: { studentId, sectionId: parseInt(req.params.id as string) } },
+        data: { status: 'ENROLLED', enrollDate: new Date() },
+        include: { student: true, section: { include: { course: true } } }
+      });
+    } else {
+      ss = await prisma.studentSection.create({
+        data: { studentId, sectionId: parseInt(req.params.id as string) },
+        include: { student: true, section: { include: { course: true } } }
+      });
+    }
     res.json(ss);
   } catch (err: any) {
     if (err.code === 'P2002') return res.status(400).json({ error: 'الطالب مسجّل في هذه الشعبة مسبقاً' });
@@ -128,10 +320,182 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
 router.delete('/:id/students/:studentId', authMiddleware, requirePermission('sections.assign'), async (req, res) => {
   try {
     await prisma.studentSection.deleteMany({
-      where: { sectionId: req.params.id, studentId: req.params.studentId }
+      where: { sectionId: parseInt(req.params.id as string), studentId: (req.params.studentId as string) }
     });
     res.json({ success: true });
   } catch { res.status(400).json({ error: 'فشل إزالة الطالب' }); }
+});
+
+// Get a student's enrolled sections with schedule info
+router.get('/students/:studentId/enrolled-sections', authMiddleware, requirePermission('sections.manage'), async (req, res) => {
+  try {
+    const studentId = req.params.studentId as string;
+    const records = await prisma.studentSection.findMany({
+      where: { studentId, status: 'ENROLLED', section: { status: 'OPEN' } },
+      include: { section: { include: { course: true, instructor: true, room: true } } }
+    });
+    res.json(records.map(ss => ({
+      id: ss.section.id,
+      name: ss.section.name,
+      courseId: ss.section.courseId,
+      courseName: ss.section.course?.name || '',
+      days: ss.section.days,
+      startTime: ss.section.startTime,
+      endTime: ss.section.endTime,
+      instructorName: ss.section.instructor?.name || '',
+      roomName: ss.section.room?.name || '',
+      startDate: ss.section.startDate,
+      endDate: ss.section.endDate,
+      enrollDate: ss.enrollDate,
+    })));
+  } catch {
+    res.status(500).json({ error: 'خطأ في جلب شعب الطالب' });
+  }
+});
+
+// Transfer student between sections (moves attendance + grades)
+router.post('/transfer', authMiddleware, requirePermission('sections.assign'), async (req, res) => {
+  const { studentId, fromSectionId, toSectionId } = req.body;
+  if (!studentId || !fromSectionId || !toSectionId) {
+    return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+  }
+  const fromId = parseInt(fromSectionId);
+  const toId = parseInt(toSectionId);
+  if (fromId === toId) return res.status(400).json({ error: 'نفس الشعبة' });
+
+  try {
+    // 1. Check source enrollment exists
+    const sourceSS = await prisma.studentSection.findUnique({
+      where: { studentId_sectionId: { studentId, sectionId: fromId } }
+    });
+    if (!sourceSS) return res.status(404).json({ error: 'الطالب غير مسجل في الشعبة المصدر' });
+
+    // 2. Check target section (count only ENROLLED for capacity)
+    const target = await prisma.section.findUnique({
+      where: { id: toId }
+    });
+    if (!target) return res.status(404).json({ error: 'الشعبة الهدف غير موجودة' });
+    if (target.status !== 'OPEN') return res.status(400).json({ error: 'الشعبة الهدف غير مفتوحة' });
+    const enrolledCount = await prisma.studentSection.count({
+      where: { sectionId: toId, status: 'ENROLLED' }
+    });
+    if (enrolledCount >= target.capacity) return res.status(400).json({ error: 'الشعبة الهدف ممتلئة' });
+
+    // 3. Same course check
+    const source = await prisma.section.findUnique({
+      where: { id: fromId }, select: { courseId: true }
+    });
+    if (!source || source.courseId !== target.courseId) {
+      return res.status(400).json({ error: 'يجب أن تكون الشعبتان لنفس الدورة' });
+    }
+
+    // 4. Check if student can transfer to target
+    const inTarget = await prisma.studentSection.findUnique({
+      where: { studentId_sectionId: { studentId, sectionId: toId } }
+    });
+    if (inTarget && inTarget.status === 'ENROLLED') {
+      return res.status(400).json({ error: 'الطالب مسجل بالفعل في الشعبة الهدف' });
+    }
+
+    // 5. Time conflict with other enrolled sections (excl. current and target)
+    const others = await prisma.studentSection.findMany({
+      where: { studentId, status: 'ENROLLED', sectionId: { notIn: [fromId, toId] } },
+      include: { section: true }
+    });
+    for (const o of others) {
+      if (daysOverlap(target.days, o.section.days) && checkOverlap(target.startTime, target.endTime, o.section.startTime, o.section.endTime)) {
+        return res.status(409).json({
+          error: `تعارض في الموعد مع الشعبة: ${o.section.name || o.section.id}`
+        });
+      }
+    }
+
+    // 6. Execute transfer
+    const ops = [
+      prisma.studentSection.update({
+        where: { studentId_sectionId: { studentId, sectionId: fromId } },
+        data: { status: 'TRANSFERRED' }
+      }),
+      prisma.transferLog.create({
+        data: { studentId, fromSectionId: fromId, toSectionId: toId }
+      }),
+    ];
+
+    if (inTarget) {
+      // Re-activate existing record (was TRANSFERRED, WITHDRAWN, etc.)
+      ops.push(
+        prisma.studentSection.update({
+          where: { studentId_sectionId: { studentId, sectionId: toId } },
+          data: { status: 'ENROLLED', enrollDate: new Date() }
+        })
+      );
+    } else {
+      // No existing record — create new
+      ops.push(
+        prisma.studentSection.create({
+          data: { studentId, sectionId: toId, status: 'ENROLLED' }
+        })
+      );
+    }
+
+    await prisma.$transaction(ops);
+
+    const actingUser = (req as any).user;
+    await prisma.auditLog.create({
+      data: {
+        userId: actingUser.id,
+        action: 'TRANSFER',
+        entity: 'StudentSection',
+        details: JSON.stringify({ studentId, fromSectionId: fromId, toSectionId: toId })
+      }
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    if (err.code === 'P2002') return res.status(400).json({ error: 'الطالب مسجل بالفعل في الشعبة الهدف' });
+    res.status(400).json({ error: err.message || 'فشل نقل الطالب' });
+  }
+});
+
+// Get transfer log for a student
+router.get('/students/:studentId/transfer-log', authMiddleware, requirePermission('students.view'), async (req, res) => {
+  try {
+    const studentId = req.params.studentId as string;
+    const logs = await prisma.transferLog.findMany({
+      where: { studentId },
+      include: {
+        fromSection: { include: { course: true, instructor: true, room: true } },
+        toSection: { include: { course: true, instructor: true, room: true } },
+      },
+      orderBy: { transferredAt: 'desc' }
+    });
+    res.json(logs.map(log => ({
+      id: log.id,
+      transferredAt: log.transferredAt,
+      from: {
+        id: log.fromSection.id,
+        name: log.fromSection.name,
+        courseName: log.fromSection.course?.name || '',
+        days: log.fromSection.days,
+        startTime: log.fromSection.startTime,
+        endTime: log.fromSection.endTime,
+        instructorName: log.fromSection.instructor?.name || '',
+        roomName: log.fromSection.room?.name || '',
+      },
+      to: {
+        id: log.toSection.id,
+        name: log.toSection.name,
+        courseName: log.toSection.course?.name || '',
+        days: log.toSection.days,
+        startTime: log.toSection.startTime,
+        endTime: log.toSection.endTime,
+        instructorName: log.toSection.instructor?.name || '',
+        roomName: log.toSection.room?.name || '',
+      },
+    })));
+  } catch {
+    res.status(500).json({ error: 'خطأ في جلب سجل التنقلات' });
+  }
 });
 
 export default router;

@@ -3,43 +3,85 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // ==========================================
-// Phase 9: User Management & Security
+// User Management & Security
 // ==========================================
 
 model User {
-  id                String @id @default(uuid())
-  username          String @unique
+  id                Int     @id @default(autoincrement())
+  username          String  @unique
   passwordHash      String
   fullName          String
-  role              String @default("EMPLOYEE") // "ADMIN" | "EMPLOYEE"
-  status            String @default("ACTIVE") // "ACTIVE" | "INACTIVE"
-  maxDevicesAllowed Int    @default(3)
+  role              String  @default("EMPLOYEE")
+  // ADMIN | SUPERVISOR | REGISTRAR | TEAM_LEADER | TRAINEE | INSTRUCTOR | STUDENT | EMPLOYEE
+  status            String  @default("ACTIVE") // ACTIVE | INACTIVE
+  lastSeenAt        DateTime? // last time user was online (updated on disconnect)
+  maxDevicesAllowed Int     @default(3)
+  supervisorId      Int? // FK to another User (supervisor/team leader)
+  teamLeaderId      Int? // FK to Team Leader User
+  employeeId        Int? // link to Employee record
+  instructorId      Int? // link to Instructor record
+  studentId         String? // link to Student record (String because Student.id is String)
+  portalBg          String? // YouTube URL or image URL for portal background
+  portalBgType      String? @default("NONE") // NONE | IMAGE | VIDEO | SLIDESHOW
+  portals           String  @default("[]") // JSON array of accessible portals: ["ADMIN","INSTRUCTOR","STUDENT"]
+  portalTabs        String  @default("[]") // JSON array of visible tabs for student portal: ["schedule","attendance","payments","grades","profile"]
+  profileImage      String? // URL to profile picture (e.g. /uploads/profiles/uuid.jpg)
+  aboutStatus       String? @default("") // text status shown in chat (like WhatsApp about)
+  preferences       String  @default("{}") // JSON: { theme: 'dark'|'light', contrast: number }
+  points            Int     @default(0)
 
   permissions   UserPermission[]
   auditLogs     AuditLog[]
   loginSessions LoginSession[]
+  securityAlerts SecurityAlert[]
+  announcementReads AnnouncementRead[]
+  createdAnnouncements Announcement[] @relation("CreatedAnnouncements")
+
+  assignedEntityIds String @default("[]") // JSON array of educational entity IDs
+
+  supervisor User?  @relation("SupervisorSubordinates", fields: [supervisorId], references: [id], onDelete: SetNull)
+  subordinates User[] @relation("SupervisorSubordinates")
+
+  teamLeader User?  @relation("TeamMembers", fields: [teamLeaderId], references: [id], onDelete: SetNull)
+  teamMembers User[] @relation("TeamMembers")
+
+  registeredStudents Student[] @relation("StudentRegisteredByUser")
+
+  userFiles     UserFile[]
+  userNotes     UserNote[]
+  userDocuments UserDocument[]
+
+  createdConversations      Conversation[]              @relation("CreatedConversations")
+  conversationParticipants  ConversationParticipant[]
+  sentMessages             Message[]                   @relation("SentMessages")
+  messageStatuses          MessageStatus[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([supervisorId])
+  @@index([teamLeaderId])
+  @@index([employeeId])
+  @@index([studentId])
 }
 
 model Permission {
-  id          String  @id @default(uuid())
-  name        String  @unique // dot-notation: "students.view", "finance.receipts", "ADMIN_ALL"
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
   description String?
 
   users UserPermission[]
 }
 
 model UserPermission {
-  id           String @id @default(uuid())
-  userId       String
-  permissionId String
+  id           Int @id @default(autoincrement())
+  userId       Int
+  permissionId Int
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
@@ -48,13 +90,14 @@ model UserPermission {
 }
 
 model AuditLog {
-  id         String  @id @default(uuid())
-  userId     String
-  action     String // "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT" | "PAY"
-  entity     String // e.g., "Student", "Installment"
-  details    String // JSON string
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  action     String
+  entity     String
+  details    String
   ipAddress  String?
   deviceType String?
+  userAgent  String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -62,12 +105,13 @@ model AuditLog {
 }
 
 model LoginSession {
-  id         String   @id @default(uuid())
-  userId     String
+  id         Int      @id @default(autoincrement())
+  userId     Int
   token      String   @unique
   ipAddress  String?
   deviceType String?
-  status     String   @default("ACTIVE") // "ACTIVE" | "REVOKED"
+  userAgent  String?
+  status     String   @default("ACTIVE") // ACTIVE | REVOKED
   lastActive DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -75,35 +119,81 @@ model LoginSession {
   createdAt DateTime @default(now())
 }
 
+model SecurityAlert {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  type       String   // FAILED_LOGIN_ATTEMPT
+  message    String
+  ipAddress  String?
+  deviceType String?
+  userAgent  String?
+  read       Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model FailedLoginAttempt {
+  id        Int      @id @default(autoincrement())
+  username  String
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+}
+
+model PermissionTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  permissions String   // JSON array of permission keys
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ==========================================
-// Phase 1: Educational Entities & Resources
+// Educational Entities & Resources
 // ==========================================
 
 model EducationalEntity {
-  id            String @id @default(uuid())
-  name          String
-  type          String // "UNIVERSITY" | "INSTITUTE" | "ACADEMY"
-  status        String @default("ACTIVE")
-  uniPercentage Float  @default(0)
-  fixedAmount   Float  @default(0)
-  contactPhone  String?
-  notes         String?
+  id             Int     @id @default(autoincrement())
+  name           String
+  type           String  // UNIVERSITY | INSTITUTE | ACADEMY | HOSPITAL
+  status         String  @default("ACTIVE")
+  commissionType String  @default("PERCENTAGE") // PERCENTAGE | FIXED_PER_STUDENT | PER_ROOM | PERCENTAGE_AND_FIXED | PERCENTAGE_AND_ROOM
+  uniPercentage  Float   @default(0) // Revenue share percentage
+  fixedAmount    Float   @default(0) // Fixed amount per student
+  roomAmount     Float   @default(0) // Fixed amount per room/session
+  contactPhone   String?
+  contactEmail   String?
+  notes          String?
 
+  courses     Course[]
+  diplomas    Diploma[]
   rooms       Room[]
   diplomaSubs DiplomaSubscription[]
   courseSubs  CourseSubscription[]
+  settlements EntitySettlement[]
+  claims      EntityClaim[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Room {
-  id       String @id @default(uuid())
+  id       Int     @id @default(autoincrement())
   name     String
-  type     String // "ROOM" | "LAB" | "VIRTUAL"
+  type     String // ROOM | LAB | VIRTUAL
   capacity Int    @default(30)
+  costType String @default("FIXED") // FIXED | PER_STUDENT | BOTH
+  address  String?
+  building  String?
+  floor     String?
+  hasProjector Boolean @default(false)
+  hasAC        Boolean @default(false)
+  notes     String?
 
-  entityId String?
+  entityId Int?
   entity   EducationalEntity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
 
   sections Section[]
@@ -113,51 +203,94 @@ model Room {
 }
 
 model Instructor {
-  id             String  @id @default(uuid())
+  id             Int     @id @default(autoincrement())
   name           String
   specialization String?
   phone          String?
-  type           String // "INTERNAL" | "EXTERNAL"
+  email          String?
+  type           String  // INTERNAL | EXTERNAL
+  employmentType String  @default("FULL_TIME") // FULL_TIME | PART_TIME
   status         String  @default("ACTIVE")
+  userId         Int? @unique // linked User account
 
-  sections Section[]
+  // Lecturer financials
+  salaryType     String  @default("PER_COURSE") // FIXED | PER_COURSE | PER_HOUR
+  fixedSalary    Float   @default(0) // الراتب الشهري الثابت
+  courseRate     Float   @default(0) // أجر المحاضر لكل دورة
+  hourlyRate     Float   @default(0) // أجر المحاضر لكل ساعة
+  paymentMethod  String  @default("PER_COURSE") // PER_COURSE | PER_HOUR | PER_SESSION (deprecated, use salaryType)
+  iban           String? // للحوالات البنكية
+
+  sections      Section[]
+  payments      InstructorPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 // ==========================================
-// Phase 1: Courses & Diplomas
+// Course Categories
+// ==========================================
+
+model CourseCategory {
+  id       Int     @id @default(autoincrement())
+  name     String
+  nameAr   String?
+  parentId Int?
+  order    Int     @default(0)
+  status   String  @default("ACTIVE")
+
+  courses  Course[]
+  parent   CourseCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children CourseCategory[] @relation("CategoryHierarchy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Courses & Diplomas
 // ==========================================
 
 model Course {
-  id          String  @id @default(uuid())
+  id          String  @id // e.g. C000001 (the code itself is the PK)
   name        String
-  category    String // "COMPUTER" | "MANAGEMENT" | "LANGUAGES" | "FINANCE" | "OTHER"
+  categoryId  Int
   hours       Int     @default(0)
   price       Float   @default(0)
+  minPayment  Float   @default(0)
   duration    String?
   description String?
   status      String  @default("ACTIVE")
+  entityId    Int?
 
-  diplomas      DiplomaCourse[]
-  sections      Section[]
-  requestedBy   RequestedCourse[]
-  subscriptions CourseSubscription[]
+  category CourseCategory @relation(fields: [categoryId], references: [id])
+  entity   EducationalEntity? @relation(fields: [entityId], references: [id])
+
+  diplomas          DiplomaCourse[]
+  prerequisites     CoursePrerequisite[] @relation("CoursePrereq")
+  prerequisiteFor   CoursePrerequisite[] @relation("CoursePrereqFor")
+  sections          Section[]
+  requestedBy       RequestedCourse[]
+  lecturerPayments  InstructorPayment[]
+  subscriptions     CourseSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Diploma {
-  id          String  @id @default(uuid())
+  id          String  @id // e.g. D000001 (the code itself is the PK)
   name        String
   description String?
   totalHours  Int     @default(0)
   totalPrice  Float   @default(0)
+  minPayment  Float   @default(0)
   category    String?
   status      String  @default("ACTIVE")
+  entityId    Int?
 
+  entity      EducationalEntity? @relation(fields: [entityId], references: [id])
   courses       DiplomaCourse[]
   subscriptions DiplomaSubscription[]
 
@@ -166,7 +299,7 @@ model Diploma {
 }
 
 model DiplomaCourse {
-  id        String @id @default(uuid())
+  id        Int    @id @default(autoincrement())
   diplomaId String
   courseId  String
   order     Int    @default(0)
@@ -177,23 +310,38 @@ model DiplomaCourse {
   @@unique([diplomaId, courseId])
 }
 
+model CoursePrerequisite {
+  id             Int    @id @default(autoincrement())
+  courseId       String
+  prerequisiteId String
+
+  course       Course @relation("CoursePrereq", fields: [courseId], references: [id], onDelete: Cascade)
+  prerequisite Course @relation("CoursePrereqFor", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, prerequisiteId])
+}
+
 // ==========================================
-// Phase 2: Sections & Schedules
+// Sections & Schedules
 // ==========================================
 
 model Section {
-  id           String    @id @default(uuid())
+  id           Int       @id @default(autoincrement())
   name         String?
   courseId     String
-  roomId       String
-  instructorId String
-  days         String // JSON string: '["SAT","MON","WED"]'
-  startTime    String // "17:00"
-  endTime      String // "19:00"
+  roomId       Int
+  instructorId Int
+  days         String    // JSON: ["SAT","MON","WED"]
+  startTime    String    // "17:00"
+  endTime      String    // "19:00"
   startDate    DateTime?
   endDate      DateTime?
   capacity     Int       @default(30)
-  status       String    @default("OPEN") // "OPEN" | "CLOSED" | "COMPLETED"
+  status       String    @default("OPEN") // OPEN | CLOSED | COMPLETED
+
+  maxAbsences                Int     @default(3)
+  instructorCanEditAttendance Boolean @default(true)
+  instructorCanEditGrades    Boolean @default(true)
 
   course     Course     @relation(fields: [courseId], references: [id])
   room       Room       @relation(fields: [roomId], references: [id])
@@ -201,53 +349,86 @@ model Section {
 
   students    StudentSection[]
   attendances Attendance[]
+  lecturerPayments InstructorPayment[]
+  fromTransfers     TransferLog[] @relation("FromSection")
+  toTransfers       TransferLog[] @relation("ToSection")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([status])
+  @@index([instructorId])
+  @@index([roomId])
 }
 
 // ==========================================
-// Phase 3 & 4: Students & Requests
+// Students
 // ==========================================
 
 model Student {
-  id             String   @id @default(uuid())
-  fullNameAr     String
-  fullNameEn     String?
-  dob            DateTime
-  nationality    String   @default("JO")
-  nationalId     String?
-  passportId     String?
-  phones         String   @default("[]") // JSON stringified array
-  whatsappOnly   String   @default("[]") // JSON stringified array
-  address        String?
-  studentType    String   @default("UNIVERSITY") // "UNIVERSITY"|"HIGH_SCHOOL"|"EMPLOYEE"|"OTHER"
-  universityName String?
-  universityId   String?
-  status         String   @default("ACTIVE") // "ACTIVE"|"POSTPONED"|"WITHDRAWN"|"CANCELED"|"FINISHED"
-  marketerName   String?
-  notes          String?
+  id               String  @id // YYYYMMrrrSSSS e.g. 2026021230001 (systemId is the PK)
+  fullNameAr       String
+  fullNameEn       String?
+  dob              DateTime
+  gender           String  @default("MALE") // MALE | FEMALE
+  nationality      String  @default("JO")
+  nationalityName  String?
+  nationalId       String?
+  passportId       String?
+  personalId       String? // for non-Jordanian (10 digits)
+  phones           String  @default("[]") // JSON array of numbers
+  phoneCodes       String  @default("[\"+962\"]") // JSON array of country codes
+  whatsappOnly     String  @default("[]") // JSON array of booleans
+  isIdNumber       String  @default("[]") // JSON array of booleans (is ID number)
+  address          String?
+  governorate      String? // محافظة الطالب
+  studentType      String  @default("UNIVERSITY") // UNIVERSITY|HIGH_SCHOOL|EMPLOYEE|OTHER
+  universityName   String?
+  universityId     String? // university student number
+  highSchoolPassed Boolean @default(false)
+  status           String  @default("ACTIVE") // ACTIVE|POSTPONED|WITHDRAWN|CANCELED|FINISHED
+  marketerName        String?
+  markerEmployeeId    Int? // which employee registered this student
+  supervisorEmployeeId Int? // supervisor assigned to this student (auto-filled from markerEmployee's supervisor)
+  registeredByUserId  Int? // which User registered this student (for points/visibility)
+  notes               String?
 
   registrationDate DateTime @default(now())
 
   diplomaSubscriptions  DiplomaSubscription[]
   courseSubscriptions   CourseSubscription[]
   requestedCourses      RequestedCourse[]
+  markerEmployee        Employee? @relation("StudentRegistrar", fields: [markerEmployeeId], references: [id])
+  supervisorEmployee    Employee? @relation("StudentSupervisor", fields: [supervisorEmployeeId], references: [id])
+  registeredByUser      User?    @relation("StudentRegisteredByUser", fields: [registeredByUserId], references: [id])
   sections              StudentSection[]
   attendances           Attendance[]
   financialTransactions FinancialTransaction[]
   installments          Installment[]
+  claims                EntityClaim[]
+  transferLogs          TransferLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([studentType])
+  @@index([nationality])
+  @@index([markerEmployeeId])
+  @@index([registeredByUserId])
+  @@index([fullNameAr])
+  @@index([fullNameEn])
+  @@index([nationalId])
+  @@index([createdAt])
 }
 
 model DiplomaSubscription {
-  id        String  @id @default(uuid())
+  id        Int     @id @default(autoincrement())
   studentId String
   diplomaId String
-  entityId  String?
-  studyType String  @default("FACE_TO_FACE") // "FACE_TO_FACE" | "HYBRID" | "ONLINE"
+  entityId  Int?
+  studyType String  @default("FACE_TO_FACE") // FACE_TO_FACE | HYBRID | ONLINE
 
   // Financials
   baseFee       Float   @default(0)
@@ -255,32 +436,37 @@ model DiplomaSubscription {
   transportFee  Float   @default(0)
   hasSupplies   Boolean @default(false)
   suppliesFee   Float   @default(0)
-  discountType  String  @default("NONE") // "NONE" | "FIXED" | "PERCENTAGE"
+  discountType  String  @default("NONE") // NONE | FIXED | PERCENTAGE
   discountValue Float   @default(0)
   totalCost     Float   @default(0)
+  minPaymentException Boolean @default(false)
 
   // Installment plan
-  paymentType       String @default("FULL") // "FULL" | "INSTALLMENT"
+  paymentType       String @default("FULL") // FULL | INSTALLMENT
   installmentsCount Int    @default(1)
 
   date   DateTime @default(now())
-  status String   @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "CANCELED"
+  status String   @default("ACTIVE") // ACTIVE | GRADUATED | WITHDRAWN | CANCELED
   notes  String?
 
   student Student            @relation(fields: [studentId], references: [id])
   diploma Diploma            @relation(fields: [diplomaId], references: [id])
   entity  EducationalEntity? @relation(fields: [entityId], references: [id])
 
+  installments Installment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([diplomaId])
 }
 
 model CourseSubscription {
-  id        String  @id @default(uuid())
+  id        Int     @id @default(autoincrement())
   studentId String
   courseId  String
-  entityId  String?
+  entityId  Int?
   studyType String  @default("FACE_TO_FACE")
 
   // Financials
@@ -292,29 +478,34 @@ model CourseSubscription {
   discountType  String  @default("NONE")
   discountValue Float   @default(0)
   totalCost     Float   @default(0)
+  minPaymentException Boolean @default(false)
 
   // Installment plan
-  paymentType       String @default("FULL") // "FULL" | "INSTALLMENT"
+  paymentType       String @default("FULL")
   installmentsCount Int    @default(1)
 
   date   DateTime @default(now())
-  status String   @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "CANCELED"
+  status String   @default("ACTIVE") // ACTIVE | GRADUATED | WITHDRAWN | CANCELED
   notes  String?
 
   student Student            @relation(fields: [studentId], references: [id])
   course  Course             @relation(fields: [courseId], references: [id])
   entity  EducationalEntity? @relation(fields: [entityId], references: [id])
 
+  installments Installment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([courseId])
 }
 
 model RequestedCourse {
-  id        String @id @default(uuid())
+  id        Int    @id @default(autoincrement())
   studentId String
   courseId  String
-  status    String @default("PENDING") // "PENDING" | "ASSIGNED"
+  status    String @default("PENDING") // PENDING | ASSIGNED
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -326,32 +517,109 @@ model RequestedCourse {
 }
 
 // ==========================================
-// Phase 5: Student in Section
+// Chat System (Like WhatsApp)
+// ==========================================
+
+model Conversation {
+  id          Int      @id @default(autoincrement())
+  type        String   @default("PRIVATE") // PRIVATE | GROUP
+  name        String?  // for groups
+  createdById Int
+
+  createdBy User @relation("CreatedConversations", fields: [createdById], references: [id])
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ConversationParticipant {
+  id              Int      @id @default(autoincrement())
+  conversationId  Int
+  userId          Int
+  lastReadAt      DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             Int      @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  content        String?  // text content (null for images/files)
+  imageUrl       String?  // optional image/file attachment
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentMessages", fields: [senderId], references: [id])
+
+  statuses MessageStatus[]
+}
+
+model MessageStatus {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  status    String   @default("SENT") // SENT | DELIVERED | READ
+  readAt    DateTime?
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
+
+// ==========================================
+// Student in Section
 // ==========================================
 
 model StudentSection {
-  id         String   @id @default(uuid())
+  id         Int      @id @default(autoincrement())
   studentId  String
-  sectionId  String
+  sectionId  Int
   enrollDate DateTime @default(now())
-  status     String   @default("ENROLLED") // "ENROLLED" | "WITHDRAWN" | "COMPLETED"
+  status     String   @default("ENROLLED") // ENROLLED | WITHDRAWN | COMPLETED | TRANSFERRED
+
+  // Grades
+  grade              Float?       // single grade out of 100 (null for project submissions)
+  isProject          Boolean @default(false) // true = project submission (grade not used)
+  result             String?      // PASS | FAIL | null (auto-calculated for grades, manual for projects)
+  supervisorApproved Boolean @default(false)
+
+  gradeApprovedByInstructor Boolean @default(false)
+  gradeApprovedByAdmin      Boolean @default(false)
+  gradeEditable             Boolean @default(true)
+
+  // Attendance status
+  attendanceStatus        String? // ELIGIBLE | DEPRIVED | EXEMPTED
+  attendanceOverride      Boolean @default(false)
+  attendanceOverrideReason String?
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, sectionId])
+  @@index([studentId])
+  @@index([sectionId])
+  @@index([result])
 }
 
 // ==========================================
-// Phase 6: Attendance
+// Attendance
 // ==========================================
 
 model Attendance {
-  id        String   @id @default(uuid())
-  sectionId String
+  id        Int      @id @default(autoincrement())
+  sectionId Int
   studentId String
   date      DateTime
-  status    String // "PRESENT" | "ABSENT" | "LATE" | "EXCUSED"
+  status    String   // PRESENT | ABSENT | LATE | EXCUSED
   notes     String?
 
   section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -364,58 +632,461 @@ model Attendance {
 }
 
 // ==========================================
-// Phase 7: Finances
+// Transfer log
+// ==========================================
+
+model TransferLog {
+  id            Int      @id @default(autoincrement())
+  studentId     String
+  fromSectionId Int
+  toSectionId   Int
+  transferredAt DateTime @default(now())
+
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fromSection Section @relation("FromSection", fields: [fromSectionId], references: [id])
+  toSection   Section @relation("ToSection", fields: [toSectionId], references: [id])
+
+  @@index([studentId])
+}
+
+// ==========================================
+// Finances
 // ==========================================
 
 model FinancialTransaction {
-  id               String   @id @default(uuid())
-  studentId        String
+  id               Int      @id @default(autoincrement())
+  studentId        String?
   subscriptionId   String?
-  subscriptionType String?  // "DIPLOMA" | "COURSE"
-  installmentId    String?  // optional link to an Installment
-  type             String   // "RECEIPT" | "PAYMENT" | "ADJUSTMENT"
+  subscriptionType String?  // DIPLOMA | COURSE
+  installmentId    Int?
+  type             String   // RECEIPT | PAYMENT | ADJUSTMENT | EXPENSE
   amount           Float
-  paymentMethod    String   @default("CASH") // "CASH" | "BANK" | "CARD" | "TRANSFER"
+  paymentMethod    String   @default("CASH") // CASH | BANK | CARD | TRANSFER | ENTITY
   date             DateTime @default(now())
-  status           String   @default("COMPLETED") // "COMPLETED" | "VOIDED"
-  receiptNumber    Int      @default(0) // auto-assigned by backend
+  status           String   @default("COMPLETED") // COMPLETED | VOIDED
+  receiptNumber    String   @default("")
+  referenceNumber  String?
+  paymentWallet    String? // WALLET type: wallet name
+  paymentBank      String? // CLICK type: bank name
+  senderInfo       String? // CLICK type: sender name/phone
 
   // Revenue split
-  universityShare Float @default(0)
-  centerShare     Float @default(0)
-  commission      Float @default(0)
+  universityShare    Float   @default(0)
+  centerShare        Float   @default(0)
+  employeeCommission Float   @default(0)
+  employeeId         Int?
+  lecturerCost       Float   @default(0) // تكلفة المحاضر
+  entityClaimId      Int?    // رابط المطالبة المالية
+  expenseCategory    String? // فئة المصروف: SALARY | RENT | UTILITIES | SUPPLIES | MARKETING | OTHER
+
+  paymentDest       String?  // ENTITY | US (جهة التعليم / لدينا)
+  paymentSubMethod  String?  // wallet type (CLICK|ZAIN_CASH|...) or transfer type (WESTERN_UNION|...)
+  paymentWalletRef  String?  // optional wallet reference for electronic
+  checkNumber       String?  // رقم الشيك
+  hawalaNumber      String?  // رقم الحوالة المالية
 
   notes     String?
 
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Installment {
+  id                Int       @id @default(autoincrement())
+  studentId         String
+  subscriptionId    String
+  subscriptionType  String    // DIPLOMA | COURSE
+  diplomaSubId      Int?   // FK to DiplomaSubscription
+  courseSubId       Int?   // FK to CourseSubscription
+  installmentNumber Int       @default(1)
+  totalInstallments Int       @default(1)
+  dueDate           DateTime
+  amount            Float
+  paidAmount        Float     @default(0)
+  remainingAmount   Float     @default(0)
+  status            String    @default("PENDING") // PENDING|PAID|PARTIAL|OVERDUE
+  paymentDate       DateTime?
+  paymentMethod     String?   // CASH|BANK|CARD|TRANSFER|ENTITY|WALLET|CLICK
+  referenceNumber   String?
+  paymentWallet     String?   // WALLET: umniah|orange|zain|dinarak|alawneh
+  paymentBank       String?   // CLICK: bank name
+  senderInfo        String?   // CLICK: sender name or phone
+  notes             String?
+  paymentDest       String?   // ENTITY | US
+  paymentSubMethod  String?   // wallet type (CLICK|ZAIN_CASH|...) or transfer type (WESTERN_UNION|...)
+  paymentWalletRef  String?   // optional wallet reference
+  checkNumber       String?   // رقم الشيك
+  hawalaNumber      String?   // رقم الحوالة المالية
+  isDeferred        Boolean   @default(false) // مؤجل
+  deferredUntil     DateTime?
+
+  student         Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  diplomaSub      DiplomaSubscription? @relation(fields: [diplomaSubId], references: [id])
+  courseSub       CourseSubscription?  @relation(fields: [courseSubId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 // ==========================================
-// Phase 8: Installments (Payment Schedule)
+// Employees
 // ==========================================
 
-model Installment {
-  id                   String    @id @default(uuid())
-  studentId            String
-  subscriptionId       String    // raw ID reference (no FK enforced by Prisma)
-  subscriptionType     String    // "DIPLOMA" | "COURSE"
-  installmentNumber    Int       @default(1)
-  totalInstallments    Int       @default(1)
-  dueDate              DateTime
-  amount               Float
-  paidAmount           Float     @default(0)
-  remainingAmount      Float     @default(0)
-  status               String    @default("PENDING") // "PENDING"|"PAID"|"PARTIAL"|"OVERDUE"
-  paymentDate          DateTime?
-  paymentMethod        String?   // "CASH"|"BANK"|"CARD"|"TRANSFER"
-  notes                String?
+model Employee {
+  id             Int     @id @default(autoincrement())
+  userId         Int? @unique // linked user account
+  fullName       String
+  phone          String?
+  email          String?
+  type           String  @default("FULL_TIME") // FULL_TIME | PART_TIME | COMMISSION
+  baseSalary     Float   @default(0) // monthly (for full-time)
+  commissionType String  @default("NONE") // NONE | FIXED_PER_STUDENT | PERCENTAGE
+  commissionValue Float  @default(0)
+  status         String  @default("ACTIVE")
+  supervisorId   Int? // FK to another Employee (supervisor)
+  assignedEntityIds String @default("[]") // JSON array of entity IDs this employee can manage
 
-  // Only FK enforced: student
-  student  Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  // New fields
+  workPhone         String?
+  personalPhone     String?
+  address           String?
+  confirmationDate  DateTime?
+  jobRole           String?
+  dateOfBirth       DateTime?
+  nationalId        String?
+  idImages          String  @default("[]") // JSON array: [frontPath, backPath]
+  hasSocialInsurance Boolean @default(false)
+  contractImages    String  @default("[]") // JSON array: [page1, page2, ...]
+
+  notes          String?
+
+  registeredStudents Student[]  @relation("StudentRegistrar")
+  supervisedStudents Student[]  @relation("StudentSupervisor")
+  salaries           Salary[]
+  commissions        Commission[]
+  vacations          Vacation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Salary {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  month       Int      // 1-12
+  year        Int
+  baseSalary  Float    @default(0)
+  bonuses     Float    @default(0)
+  deductions  Float    @default(0)
+  totalSalary Float    @default(0)
+  status      String   @default("PENDING") // PENDING | PAID
+  paidDate    DateTime?
+  notes       String?
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, month, year])
+}
+
+model Commission {
+  id               Int      @id @default(autoincrement())
+  employeeId       Int
+  studentId        String?
+  subscriptionId   String?
+  subscriptionType String?  // DIPLOMA | COURSE
+  amount           Float    @default(0)
+  type             String   // REGISTRATION | MONTHLY
+  month            Int?
+  year             Int?
+  status           String   @default("PENDING") // PENDING | PAID
+  paidDate         DateTime?
+  notes            String?
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Vacation {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  type       String   // ANNUAL | SICK | UNPAID | OTHER
+  startDate  DateTime
+  endDate    DateTime
+  days       Int      @default(1)
+  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  notes      String?
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Entity Settlements
+// ==========================================
+
+model EntitySettlement {
+  id        Int      @id @default(autoincrement())
+  entityId  Int
+  month     Int
+  year      Int
+  totalDue  Float    @default(0)
+  totalPaid Float    @default(0)
+  balance   Float    @default(0)
+  status    String   @default("PENDING") // PENDING | PARTIAL | PAID
+  notes     String?
+
+  entity   EducationalEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  payments SettlementPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityId, month, year])
+}
+
+model SettlementPayment {
+  id           Int      @id @default(autoincrement())
+  settlementId Int
+  amount       Float
+  date         DateTime @default(now())
+  method       String   @default("BANK") // CASH | BANK | TRANSFER
+  reference    String?
+  notes        String?
+
+  settlement EntitySettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// ==========================================
+// Entity Claims (المطالبات المالية لجهات التعليم)
+// ==========================================
+
+model EntityClaim {
+  id               Int      @id @default(autoincrement())
+  entityId         Int
+  studentId        String
+  subscriptionId   String?
+  subscriptionType String?  // DIPLOMA | COURSE
+  totalFees        Float    @default(0) // إجمالي رسوم الطالب
+  entityShare      Float    @default(0) // حصة الجهة
+  centerShare      Float    @default(0) // حصة المركز
+  paidInstallments Int      @default(0) // عدد الأقساط المدفوعة
+  totalPaid        Float    @default(0) // إجمالي المبلغ المدفوع
+  claimAmount      Float    @default(0) // المبلغ المطالب به
+  status           String   @default("PENDING") // PENDING | APPROVED | PAID
+  periodMonth      Int?     // شهر المطالبة
+  periodYear       Int?     // سنة المطالبة
+
+  entity  EducationalEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  student Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Lecturer Payments (أجور المحاضرين)
+// ==========================================
+
+model InstructorPayment {
+  id              Int      @id @default(autoincrement())
+  instructorId    Int
+  sectionId       Int
+  courseId        String
+  amount          Float    @default(0) // الأجر لهذه الدورة
+  status          String   @default("PENDING") // PENDING | PAID
+  paidDate        DateTime?
+  paymentMethod   String?  // CASH | BANK | TRANSFER
+  notes           String?
+
+  instructor Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  section    Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([instructorId, sectionId])
+  @@map("LecturerPayment")
+}
+
+// ==========================================
+// Report Templates
+// ==========================================
+
+model ReportTemplate {
+  id          Int     @id @default(autoincrement())
+  name        String
+  type        String  // ACADEMIC | FINANCIAL | STUDENT | CUSTOM
+  description String?
+  columns     String  // JSON array of column definitions
+  filters     String? // JSON filter presets
+  sortBy      String?
+  isDefault   Boolean @default(false)
+  createdBy   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// System Sequence Counter
+// ==========================================
+
+model SystemSequence {
+  id      Int      @id @default(autoincrement())
+  key     String   @unique // e.g. "student_2026_02"
+  current Int      @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Announcements / Advertisements
+// ==========================================
+
+model Announcement {
+  id         Int      @id @default(autoincrement())
+  title      String
+  content    String   // Rich text (HTML supported)
+  type       String   @default("NORMAL") // NORMAL | URGENT
+  status     String   @default("DRAFT")  // DRAFT | PUBLISHED | ARCHIVED
+  targetRoles String  @default("[]") // JSON array of role keys: ["ADMIN","EMPLOYEE","INSTRUCTOR","STUDENT"] or [] for all
+  targetUserIds String @default("[]") // JSON array of user IDs, overrides targetRoles if non-empty
+  startAt    DateTime @default(now())
+  endAt      DateTime?
+  createdById Int
+  createdBy  User     @relation("CreatedAnnouncements", fields: [createdById], references: [id])
+  reads      AnnouncementRead[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  publishedAt DateTime?
+}
+
+model AnnouncementRead {
+  id             Int          @id @default(autoincrement())
+  announcementId Int
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+}
+
+// ==========================================
+// Portal Backgrounds (Admin-set per portal)
+// ==========================================
+
+model PortalBackground {
+  id        Int     @id @default(autoincrement())
+  portal    String  @unique // ADMIN | EMPLOYEE | INSTRUCTOR | STUDENT
+  type      String  @default("GRADIENT") // GRADIENT | IMAGE | VIDEO | SLIDESHOW
+  content   String? // YouTube URL, image base64, or JSON array of images
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// System Settings (key-value)
+// ==========================================
+
+model SystemSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String?
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// WhatsApp Integration
+// ==========================================
+
+model WhatsAppSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String?
+  updatedAt DateTime @updatedAt
+}
+
+model WhatsAppMessage {
+  id            Int      @id @default(autoincrement())
+  recipientName String?
+  recipientPhone String
+  message       String
+  status        String   @default("PENDING") // PENDING | SENT | FAILED
+  sentAt        DateTime?
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+}
+
+// ==========================================
+// User Files & Documents (Desktop OS)
+// ==========================================
+
+model UserFile {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  name      String
+  type      String   // FILE | FOLDER
+  mimeType  String?  // for files: e.g. "application/pdf"
+  size      Int?     // file size in bytes
+  parentId  Int?     // null = root folder
+  path      String   // storage path on disk
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent UserFile?  @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children UserFile[] @relation("FolderChildren")
+}
+
+model UserNote {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String   @default("")
+  content   String   @default("")
+  color     String   @default("#fef3c7")
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SharedFile {
+  id        Int      @id @default(autoincrement())
+  name      String
+  type      String   // FILE | FOLDER
+  mimeType  String?
+  size      Int?
+  parentId  Int?
+  path      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   SharedFile?  @relation("SharedFolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children SharedFile[] @relation("SharedFolderChildren")
+}
+
+model UserDocument {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String   @default("")
+  type      String   @default("document") // document | spreadsheet
+  content   String   @default("") // JSON content
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

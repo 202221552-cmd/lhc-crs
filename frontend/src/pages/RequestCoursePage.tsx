@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Book, Plus, User, Search, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export const RequestCoursePage = () => {
   const { token } = useAuth();
+  const toast = useToast();
   const [requests, setRequests] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -11,6 +14,7 @@ export const RequestCoursePage = () => {
   const [formData, setFormData] = useState({ studentId: '', courseId: '', priority: 'عادي' });
   const [searchStudent, setSearchStudent] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -29,7 +33,7 @@ export const RequestCoursePage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const handleSubmit = async () => {
-    if (!selectedStudent || !formData.courseId) return alert('يرجى اختيار الطالب والدورة');
+    if (!selectedStudent || !formData.courseId) return toast.error('تنبيه', 'يرجى اختيار الطالب والدورة');
     
     try {
       const res = await fetch('http://localhost:5000/api/request-course', {
@@ -41,22 +45,27 @@ export const RequestCoursePage = () => {
         })
       });
       if (res.ok) {
-        alert('تم التسجيل بنجاح');
+        toast.success('تم التسجيل', 'تم تسجيل طلب الدورة بنجاح');
         fetchData();
         setSelectedStudent(null);
         setFormData({ studentId: '', courseId: '', priority: 'عادي' });
       } else {
-        alert('حدث خطأ');
+        toast.error('خطأ', 'حدث خطأ أثناء التسجيل');
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('خطأ', 'تعذر الاتصال بالخادم'); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('هل أنت متأكد؟')) return;
+  const handleDelete = (id: string) => {
+    setConfirmDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteId) return;
     try {
-      await fetch(`http://localhost:5000/api/request-course/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      await fetch(`http://localhost:5000/api/request-course/${confirmDeleteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       fetchData();
     } catch (err) { console.error(err); }
+    finally { setConfirmDeleteId(null); }
   };
 
   // Group requests by course
@@ -84,7 +93,7 @@ export const RequestCoursePage = () => {
           </div>
           {searchStudent && (
             <div style={{ background: 'var(--card-bg)', padding: '10px', borderRadius: '8px', marginTop: 5 }}>
-              {students.filter(s => s.fullNameAr?.includes(searchStudent) || s.phones?.some((p: string) => p.includes(searchStudent))).map(s => (
+              {students.filter(s => s.fullNameAr?.includes(searchStudent) || s.phones?.some((p: string) => p.includes(searchStudent) || (searchStudent.startsWith('0') && p.includes(searchStudent.slice(1))))).map(s => (
                 <div key={s.id} style={{ padding: '8px', borderBottom: '1px solid var(--glass-border)', cursor: 'pointer' }} onClick={() => { setSelectedStudent(s); setSearchStudent(''); }}>
                   {s.fullNameAr} - 0{s.phones?.[0]}
                 </div>
@@ -180,6 +189,15 @@ export const RequestCoursePage = () => {
           </table>
         </div>
       </div>
+
+        <ConfirmModal
+          isOpen={confirmDeleteId !== null}
+          message="هل أنت متأكد من حذف هذا الطلب؟"
+          confirmText="حذف"
+          danger
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
     </div>
   );
 };

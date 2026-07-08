@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Bell, Plus, Send, Trash2, Clock } from 'lucide-react';
+import { useToast } from '../components/Toast';
 
 export const AdminAlertsPage = () => {
+  const toast = useToast();
   const [alerts, setAlerts] = useState([
     { id: '1', title: 'تذكير: بدء التسجيل للفصل الثاني', date: '2026-05-01', type: 'info' },
     { id: '2', title: 'تم تحديث النظام إلى الإصدار 1.0', date: '2026-05-05', type: 'success' },
@@ -9,7 +11,7 @@ export const AdminAlertsPage = () => {
   const [form, setForm] = useState({ title: '', type: 'info' });
 
   const addAlert = () => {
-    if (!form.title.trim()) return alert('يرجى إدخال نص الإعلان');
+    if (!form.title.trim()) return toast.error('تنبيه', 'يرجى إدخال نص الإعلان');
     setAlerts(prev => [{
       id: Date.now().toString(),
       title: form.title,

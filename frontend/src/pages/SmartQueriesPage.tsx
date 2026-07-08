@@ -93,7 +93,7 @@ export const SmartQueriesPage = () => {
                       {results.map(s => (
                         <tr key={s.id}>
                           <td style={{ fontWeight: 600 }}>{s.fullNameAr}</td>
-                          <td dir="ltr" style={{ textAlign: 'right', fontSize: '0.85rem' }}>+962 {getPhone(s.phones)}</td>
+                          <td dir="ltr" style={{ textAlign: 'right', fontSize: '0.85rem' }}>0{getPhone(s.phones)}</td>
                           <td>{s.nationality === 'JO' ? '🇯🇴' : '🌍'}</td>
                           <td style={{ fontSize: '0.82rem' }}>{s.studentType === 'UNIVERSITY' ? 'جامعة' : s.studentType === 'HIGH_SCHOOL' ? 'ثانوي' : 'موظف'}</td>
                           <td><span className={`badge ${s.status === 'ACTIVE' ? 'success' : 'danger'}`} style={{ fontSize: '0.75rem' }}>{s.status === 'ACTIVE' ? 'نشط' : s.status}</span></td>
