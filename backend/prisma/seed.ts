@@ -58,8 +58,8 @@ async function main() {
   const adminHash = await bcrypt.hash('102030.00', 10);
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: { passwordHash: adminHash, status: 'ACTIVE', role: 'ADMIN' },
-    create: { username: 'admin', passwordHash: adminHash, fullName: 'مسؤول النظام', role: 'ADMIN', status: 'ACTIVE', maxDevicesAllowed: 10 },
+    update: { passwordHash: adminHash, status: 'ACTIVE', role: 'ADMIN', portals: '["ADMIN","EMPLOYEE","INSTRUCTOR","STUDENT"]' },
+    create: { username: 'admin', passwordHash: adminHash, fullName: 'مسؤول النظام', role: 'ADMIN', status: 'ACTIVE', maxDevicesAllowed: 10, portals: '["ADMIN","EMPLOYEE","INSTRUCTOR","STUDENT"]' },
   });
   for (const name of ALL_PERMISSIONS) {
     const perm = await prisma.permission.findUnique({ where: { name } });
