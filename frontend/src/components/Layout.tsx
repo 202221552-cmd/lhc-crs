@@ -6,6 +6,8 @@ import { useChat } from '../context/ChatContext';
 import ChatSidebar from './ChatPanel';
 import { AnnouncementBanner } from './AnnouncementBanner';
 import { useTheme } from '../context/ThemeContext';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import {
   Users, GraduationCap, DollarSign, Settings, LayoutDashboard, BookOpen,
   Layers, ChevronDown, ChevronUp, UserCheck, Search, BarChart,
@@ -834,7 +836,7 @@ export const Layout = () => {
     try {
       const token = localStorage.getItem('ems_token');
       if (!token) return;
-      const res = await fetch('http://localhost:5000/api/backgrounds', {
+      const res = await fetch(API_BASE + '/api/backgrounds', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

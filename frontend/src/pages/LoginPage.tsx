@@ -3,7 +3,8 @@ import { useAuth, fileUrl } from '../context/AuthContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { GraduationCap, Lock, User, Eye, EyeOff, Shield, Users, BookOpen, Briefcase } from 'lucide-react';
 
-const API = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = API_BASE + '/api';
 
 // ===== PORTAL CONFIG =====
 interface Portal {

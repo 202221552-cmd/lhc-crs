@@ -4,6 +4,8 @@ import { PermissionGuard } from '../components/PermissionGuard';
 import { useApi, useAuth, fileUrl } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 // ==========================================
 // Types
 // ==========================================
@@ -64,7 +66,7 @@ export const AdminSettingsPage = () => {
   useEffect(() => {
     const token = localStorage.getItem('ems_token');
     if (!token) { setLoading(false); return; }
-    fetch('http://localhost:5000/api/settings', {
+    fetch(API_BASE + '/api/settings', {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.ok ? res.json() : null)

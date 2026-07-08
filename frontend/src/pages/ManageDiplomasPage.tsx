@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Save, Plus, GraduationCap, Search, Trash2, X, Pencil, BookOpen, DollarSign, Clock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { DIPLOMA_CATEGORIES } from '../utils/constants';
 
@@ -55,10 +57,10 @@ export const ManageDiplomasPage = () => {
   const fetchData = async () => {
     try {
       const [dipRes, crsRes, entRes, catRes] = await Promise.all([
-        fetch('http://localhost:5000/api/diplomas', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('http://localhost:5000/api/courses', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('http://localhost:5000/api/educational-entities', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('http://localhost:5000/api/courses/categories', { headers: { Authorization: `Bearer ${token}` } })
+        fetch(API_BASE + '/api/diplomas', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE + '/api/courses', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE + '/api/educational-entities', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE + '/api/courses/categories', { headers: { Authorization: `Bearer ${token}` } })
       ]);
       if (dipRes.ok) setDiplomas(await dipRes.json());
       if (crsRes.ok) setAllCourses(await crsRes.json());
@@ -122,7 +124,7 @@ export const ManageDiplomasPage = () => {
     setIsLoading(true);
     try {
       const isEdit = !!editingDiploma;
-      const url = isEdit ? `http://localhost:5000/api/diplomas/${editingDiploma!.id}` : 'http://localhost:5000/api/diplomas';
+      const url = isEdit ? `${API_BASE}/api/diplomas/${editingDiploma!.id}` : API_BASE + '/api/diplomas';
       const method = isEdit ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -143,7 +145,7 @@ export const ManageDiplomasPage = () => {
 
   const handleStatusUpdate = async (id: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/diplomas/${id}`, {
+      const res = await fetch(`${API_BASE}/api/diplomas/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: editingStatus })
       });
@@ -156,7 +158,7 @@ export const ManageDiplomasPage = () => {
   const handleDelete = (id: string) => setConfirmDeleteId(id);
   const handleConfirmDelete = async () => {
     if (!confirmDeleteId) return;
-    try { await fetch(`http://localhost:5000/api/diplomas/${confirmDeleteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); fetchData(); }
+    try { await fetch(`${API_BASE}/api/diplomas/${confirmDeleteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); fetchData(); }
     catch (err) { console.error(err); }
     finally { setConfirmDeleteId(null); }
   };

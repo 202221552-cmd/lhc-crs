@@ -47,7 +47,8 @@ const STUDENT_TYPES = [
   { value: 'OTHER', label: 'غير ذلك' },
 ];
 
-const API = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = API_BASE + '/api';
 
 const DeepSearchModalInner: React.FC<Props> = ({
   isOpen, onClose, onSearch, onSelectStudent, initialFilters = {}, showResultsInline = true

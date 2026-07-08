@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../context/AuthContext';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 import {
   Folder, File, Upload, Download, Trash2, Edit3, Plus,
   ChevronLeft, FileText, Image, Film, Music, Archive,
@@ -287,7 +290,7 @@ export const FilesDesktopApp: React.FC<{ onClose: () => void }> = ({ onClose }) 
     fd.append('file', file);
     try {
       const token = localStorage.getItem('ems_token');
-      await fetch(`http://localhost:5000/api${apiPrefix}/upload?parentId=${currentFolderId ?? ''}`, {
+      await fetch(`${API_BASE}/api${apiPrefix}/upload?parentId=${currentFolderId ?? ''}`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
       });
       load(currentFolderId);
@@ -327,7 +330,7 @@ export const FilesDesktopApp: React.FC<{ onClose: () => void }> = ({ onClose }) 
   const handleDownload = async (f: UserFile) => {
     try {
       const token = localStorage.getItem('ems_token');
-      const res = await fetch(`http://localhost:5000/api${apiPrefix}/download/${f.id}`, {
+      const res = await fetch(`${API_BASE}/api${apiPrefix}/download/${f.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const blob = await res.blob();

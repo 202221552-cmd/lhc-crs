@@ -8,7 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 
-const API = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = API_BASE + '/api';
 
 interface Section {
   id: string;

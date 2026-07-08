@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 interface ThemeContextType {
   theme: 'dark' | 'light';
   contrast: number;
@@ -130,7 +132,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       setAccentState(a);
       applyStyle(sT, c, a);
     } else {
-      fetch('http://localhost:5000/api/auth/preferences', {
+      fetch(API_BASE + '/api/auth/preferences', {
         headers: { Authorization: `Bearer ${localStorage.getItem('ems_token')}` }
       }).then(r => r.json()).then(data => {
         if (data.preferences) {
@@ -158,7 +160,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const syncToApi = useCallback((t: string, c: number, a: number) => {
     if (!userId) return;
-    fetch('http://localhost:5000/api/auth/preferences', {
+    fetch(API_BASE + '/api/auth/preferences', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('ems_token')}` },
       body: JSON.stringify({ preferences: JSON.stringify({ theme: t, contrast: c, accent: a }) })

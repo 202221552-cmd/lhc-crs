@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Book, Plus, User, Search, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import { useToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 
@@ -20,9 +22,9 @@ export const RequestCoursePage = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [reqRes, stdRes, crsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/request-course', { headers }),
-        fetch('http://localhost:5000/api/students', { headers }),
-        fetch('http://localhost:5000/api/courses', { headers })
+        fetch(API_BASE + '/api/request-course', { headers }),
+        fetch(API_BASE + '/api/students', { headers }),
+        fetch(API_BASE + '/api/courses', { headers })
       ]);
       if (reqRes.ok) setRequests(await reqRes.json());
       if (stdRes.ok) setStudents(await stdRes.json());
@@ -36,7 +38,7 @@ export const RequestCoursePage = () => {
     if (!selectedStudent || !formData.courseId) return toast.error('تنبيه', 'يرجى اختيار الطالب والدورة');
     
     try {
-      const res = await fetch('http://localhost:5000/api/request-course', {
+      const res = await fetch(API_BASE + '/api/request-course', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -62,7 +64,7 @@ export const RequestCoursePage = () => {
   const handleConfirmDelete = async () => {
     if (!confirmDeleteId) return;
     try {
-      await fetch(`http://localhost:5000/api/request-course/${confirmDeleteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      await fetch(`${API_BASE}/api/request-course/${confirmDeleteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       fetchData();
     } catch (err) { console.error(err); }
     finally { setConfirmDeleteId(null); }

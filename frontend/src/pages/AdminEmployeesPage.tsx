@@ -39,7 +39,8 @@ const EMPTY_INS: Instructor = {
 type Tab = 'employees' | 'instructors';
 
 const token = () => localStorage.getItem('token');
-const IMG_API = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const IMG_API = API_BASE;
 
 function fileUrl(filePath: string): string {
   if (!filePath) return '';

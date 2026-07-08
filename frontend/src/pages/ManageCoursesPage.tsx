@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Save, Plus, BookOpen, Search, Trash2, X, Pencil, DollarSign, Clock, AlertCircle, Building2, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 interface CourseCategory { id: number; name: string; nameAr: string | null; }
@@ -70,9 +72,9 @@ export const ManageCoursesPage = () => {
   const fetchData = async () => {
     try {
       const [crsRes, catRes, entRes] = await Promise.all([
-        fetch('http://localhost:5000/api/courses', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('http://localhost:5000/api/courses/categories', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('http://localhost:5000/api/educational-entities', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE + '/api/courses', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE + '/api/courses/categories', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_BASE + '/api/educational-entities', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (crsRes.ok) setCourses(await crsRes.json());
       if (catRes.ok) setCategories(await catRes.json());
@@ -96,7 +98,7 @@ export const ManageCoursesPage = () => {
     setIsLoading(true);
     try {
       const isEdit = !!editingCourse;
-      const url = isEdit ? `http://localhost:5000/api/courses/${editingCourse!.id}` : 'http://localhost:5000/api/courses';
+      const url = isEdit ? `${API_BASE}/api/courses/${editingCourse!.id}` : API_BASE + '/api/courses';
       const method = isEdit ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -117,7 +119,7 @@ export const ManageCoursesPage = () => {
 
   const handleStatusUpdate = async (id: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${id}`, {
+      const res = await fetch(`${API_BASE}/api/courses/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: editingStatus })
       });
@@ -130,7 +132,7 @@ export const ManageCoursesPage = () => {
   const handleDelete = (id: string) => setConfirmDeleteId(id);
   const handleConfirmDelete = async () => {
     if (!confirmDeleteId) return;
-    try { await fetch(`http://localhost:5000/api/courses/${confirmDeleteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); fetchData(); }
+    try { await fetch(`${API_BASE}/api/courses/${confirmDeleteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); fetchData(); }
     catch (err) { console.error(err); }
     finally { setConfirmDeleteId(null); }
   };

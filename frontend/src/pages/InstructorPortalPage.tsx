@@ -8,7 +8,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
-const API = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = API_BASE + '/api';
 type Tab = 'schedule' | 'attendance' | 'grades' | 'profile';
 type AttStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, useApi } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import {
   User, Shield, Key, Clock, Monitor, Smartphone, Globe,
   CheckCircle, XCircle, LogOut, AlertTriangle, Eye, EyeOff,
@@ -108,7 +110,7 @@ export const UserSettingsPage = () => {
   function imgUrl(p: string | undefined | null) {
     if (!p) return '';
     if (p.startsWith('http://') || p.startsWith('https://')) return p;
-    if (p.startsWith('/uploads/')) return `http://localhost:5000/api/files/${p.replace('/uploads/', '')}`;
+    if (p.startsWith('/uploads/')) return `${API_BASE}/api/files/${p.replace('/uploads/', '')}`;
     return p;
   }
 
@@ -120,7 +122,7 @@ export const UserSettingsPage = () => {
       const fd = new FormData();
       fd.append('profileImage', file);
       const token = localStorage.getItem('ems_token');
-      const res = await fetch('http://localhost:5000/api/auth/profile', {
+      const res = await fetch(API_BASE + '/api/auth/profile', {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -758,7 +760,7 @@ if (!document.head.querySelector('[data-us-doc-anim]')) {
 // ==========================================
 // Employee Docs Section (upload ID + Contract)
 // ==========================================
-const DOC_API = 'http://localhost:5000';
+const DOC_API = API_BASE;
 
 function docFileUrl(fp: string): string {
   if (!fp) return '';
