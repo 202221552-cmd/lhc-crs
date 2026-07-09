@@ -1474,54 +1474,59 @@ export const StudentsPage = () => {
         </div>
 
         {/* ===== STATUS CARDS ===== */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           {[
-            { key: '', label: 'الكل', color: '' },
-            { key: 'ACTIVE', label: 'نشط', color: 'var(--success)' },
-            { key: 'POSTPONED', label: 'مؤجل', color: 'var(--accent)' },
-            { key: 'WITHDRAWN', label: 'منسحب', color: 'var(--danger)' },
-            { key: 'CANCELED', label: 'ملغي', color: 'var(--text-muted)' },
-            { key: 'FINISHED', label: 'منتهي', color: 'var(--secondary)' },
+            { key: '', label: 'الكل', icon: <Users size={16} />, color: 'var(--primary)' },
+            { key: 'ACTIVE', label: 'نشط', icon: <CheckSquare size={16} />, color: 'var(--success)' },
+            { key: 'POSTPONED', label: 'مؤجل', icon: <Clock size={16} />, color: 'var(--accent)' },
+            { key: 'WITHDRAWN', label: 'منسحب', icon: <XCircle size={16} />, color: 'var(--danger)' },
+            { key: 'CANCELED', label: 'ملغي', icon: <X size={16} />, color: 'var(--text-muted)' },
+            { key: 'FINISHED', label: 'منتهي', icon: <GraduationCap size={16} />, color: 'var(--secondary)' },
           ].map(st => (
             <div key={st.key || '__all__'} className="stat-card" style={{
-              flex: '0 0 auto', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10,
-              cursor: 'pointer', borderRadius: 10,
-              border: filterStatus === st.key ? `2px solid ${st.color || 'var(--primary)'}` : undefined,
+              flex: '0 0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10,
+              cursor: 'pointer', borderRadius: 10, minWidth: 90,
+              border: filterStatus === st.key ? `2px solid ${st.color}` : undefined,
               background: filterStatus === st.key ? 'var(--primary-light)' : undefined,
               transition: 'all 0.15s',
             }}
               onClick={() => { setFilterStatus(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-              {st.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: st.color, flexShrink: 0 }} />}
-              <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{st.label}</span>
-              <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>
-                {st.key ? students.filter(s => s.status === st.key).length : totalCount}
-              </span>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 32, height: 32, borderRadius: 8, flexShrink: 0, color: st.color }}>
+                {st.icon}
+              </div>
+              <div>
+                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{st.key ? students.filter(s => s.status === st.key).length : totalCount}</div>
+                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>{st.label}</div>
+              </div>
             </div>
           ))}
         </div>
 
         {/* ===== STUDENT TYPE CARDS ===== */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.82rem', opacity: 0.7 }}>صفة الطالب</h4>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
           {[
-            { key: '', label: 'الكل', icon: '📋' },
-            { key: 'UNIVERSITY', label: 'جامعي', icon: '🎓' },
-            { key: 'HIGH_SCHOOL', label: 'ثانوي', icon: '📚' },
-            { key: 'EMPLOYEE', label: 'موظف', icon: '💼' },
-            { key: 'OTHER', label: 'أخرى', icon: '📋' },
+            { key: '', label: 'الكل', icon: <Users size={16} />, color: 'var(--primary)' },
+            { key: 'UNIVERSITY', label: 'جامعي', icon: <GraduationCap size={16} />, color: 'var(--accent)' },
+            { key: 'HIGH_SCHOOL', label: 'ثانوي', icon: <BookOpen size={16} />, color: 'var(--secondary)' },
+            { key: 'EMPLOYEE', label: 'موظف', icon: <Building2 size={16} />, color: 'var(--success)' },
+            { key: 'OTHER', label: 'أخرى', icon: <Users size={16} />, color: 'var(--text-muted)' },
           ].map(st => (
             <div key={st.key || '__all__'} className="stat-card" style={{
-              flex: '0 0 auto', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10,
-              cursor: 'pointer', borderRadius: 10,
-              border: filterStudentType === st.key ? '2px solid var(--primary)' : undefined,
+              flex: '0 0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10,
+              cursor: 'pointer', borderRadius: 10, minWidth: 90,
+              border: filterStudentType === st.key ? `2px solid ${st.color}` : undefined,
               background: filterStudentType === st.key ? 'var(--primary-light)' : undefined,
               transition: 'all 0.15s',
             }}
               onClick={() => { setFilterStudentType(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-              <span style={{ fontSize: '0.9rem' }}>{st.icon}</span>
-              <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{st.label}</span>
-              <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>
-                {st.key ? students.filter(s => s.studentType === st.key).length : totalCount}
-              </span>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 32, height: 32, borderRadius: 8, flexShrink: 0, color: st.color }}>
+                {st.icon}
+              </div>
+              <div>
+                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{st.key ? students.filter(s => s.studentType === st.key).length : totalCount}</div>
+                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>{st.label}</div>
+              </div>
             </div>
           ))}
         </div>
