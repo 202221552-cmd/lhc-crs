@@ -52,7 +52,7 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
       nameAr, nameEn, highSchoolPassed,
       sectionId, courseId, diplomaId, markerEmployeeId,
       supervisorEmployeeId, registeredByUserId, noSubscriptions,
-      gradeResult, paymentStatus,
+      teamLeaderUserId, gradeResult, paymentStatus,
       page, limit
     } = req.query;
 
@@ -119,6 +119,28 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
     if (registeredByUserId) where.AND.push({ registeredByUserId: parseInt(registeredByUserId as string) });
     if (noSubscriptions === 'true') {
       where.AND.push({ courseSubscriptions: { none: {} }, diplomaSubscriptions: { none: {} } });
+    }
+    if (teamLeaderUserId) {
+      const tlId = parseInt(teamLeaderUserId as string);
+      const teamMembers = await prisma.user.findMany({
+        where: { teamLeaderId: tlId },
+        select: { id: true, employeeId: true }
+      });
+      const memberIds = teamMembers.map(m => m.id);
+      const subordinates = memberIds.length > 0 ? await prisma.user.findMany({
+        where: { supervisorId: { in: memberIds } },
+        select: { id: true }
+      }) : [];
+      const allIds = [tlId, ...memberIds];
+      subordinates.forEach(s => { if (!allIds.includes(s.id)) allIds.push(s.id); });
+      const employeeIds: number[] = [];
+      teamMembers.forEach(m => { if (m.employeeId && !employeeIds.includes(m.employeeId)) employeeIds.push(m.employeeId); });
+      where.AND.push({
+        OR: [
+          { registeredByUserId: { in: allIds } },
+          ...(employeeIds.length > 0 ? [{ markerEmployeeId: { in: employeeIds } }] : []),
+        ]
+      });
     }
     if (universityName) where.AND.push({ universityName: { contains: String(universityName).trim() } });
     if (systemId) where.AND.push({ id: { contains: String(systemId).trim() } });
@@ -821,6 +843,78 @@ router.get('/:id/available-sections', authMiddleware, requirePermission('student
     console.error('available-sections error', e);
     res.status(500).json({ error: 'خطأ في جلب الشعب المتاحة' });
   }
+});
+
+// ==========================================
+// GET user hierarchy for student stat cards
+// ==========================================
+router.get('/users/hierarchy', authMiddleware, requirePermission('students.view'), async (req, res) => {
+  const authUser = (req as any).user;
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.permissions?.some((p: any) => p.permission?.name === 'ADMIN_ALL');
+
+  let teamLeaders: any[] = [];
+  let supervisors: any[] = [];
+  let registrars: any[] = [];
+
+  if (isAdmin) {
+    teamLeaders = await prisma.user.findMany({
+      where: { role: 'TEAM_LEADER', status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true }
+    });
+    supervisors = await prisma.user.findMany({
+      where: { role: 'SUPERVISOR', status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+    registrars = await prisma.user.findMany({
+      where: { role: { in: ['REGISTRAR', 'EMPLOYEE'] }, status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+  } else if (authUser.role === 'TEAM_LEADER') {
+    const tlResult = await prisma.user.findUnique({
+      where: { id: authUser.id },
+      select: { id: true, fullName: true, role: true }
+    });
+    if (tlResult) teamLeaders = [tlResult];
+    const members = await prisma.user.findMany({
+      where: { teamLeaderId: authUser.id, status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+    supervisors = members.filter(u => u.role === 'SUPERVISOR');
+    registrars = members.filter(u => u.role === 'REGISTRAR' || u.role === 'EMPLOYEE');
+  } else if (authUser.role === 'SUPERVISOR') {
+    if (authUser.teamLeaderId) {
+      const tl = await prisma.user.findUnique({
+        where: { id: authUser.teamLeaderId },
+        select: { id: true, fullName: true, role: true }
+      });
+      if (tl) teamLeaders = [tl];
+    }
+    const self = { id: authUser.id, fullName: authUser.fullName, role: authUser.role, supervisorId: authUser.supervisorId, teamLeaderId: authUser.teamLeaderId, employeeId: authUser.employeeId };
+    supervisors = [self];
+    const subordinates = await prisma.user.findMany({
+      where: { supervisorId: authUser.id, status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+    registrars = subordinates.filter(u => u.role === 'REGISTRAR' || u.role === 'EMPLOYEE');
+  } else if (authUser.role === 'REGISTRAR' || authUser.role === 'EMPLOYEE') {
+    if (authUser.teamLeaderId) {
+      const tl = await prisma.user.findUnique({
+        where: { id: authUser.teamLeaderId },
+        select: { id: true, fullName: true, role: true }
+      });
+      if (tl) teamLeaders = [tl];
+    }
+    if (authUser.supervisorId) {
+      const sup = await prisma.user.findUnique({
+        where: { id: authUser.supervisorId },
+        select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+      });
+      if (sup) supervisors = [sup];
+    }
+    registrars = [{ id: authUser.id, fullName: authUser.fullName, role: authUser.role, supervisorId: authUser.supervisorId, teamLeaderId: authUser.teamLeaderId, employeeId: authUser.employeeId }];
+  }
+
+  res.json({ teamLeaders, supervisors, registrars });
 });
 
 function safeParseJSON(str: string, fallback: any) {

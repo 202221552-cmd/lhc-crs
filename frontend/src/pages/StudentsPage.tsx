@@ -405,12 +405,11 @@ export const StudentsPage = () => {
   const [filterSupervisorEmployeeId, setFilterSupervisorEmployeeId] = useState('');
   const [filterRegisteredByUserId, setFilterRegisteredByUserId] = useState('');
   const [filterNoSubscriptions, setFilterNoSubscriptions] = useState(false);
+  const [filterTeamLeaderUserId, setFilterTeamLeaderUserId] = useState('');
   const [filterGradeResult, setFilterGradeResult] = useState('');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [activeRoleFilter, setActiveRoleFilter] = useState<string | null>(null); // 'registrar' | 'supervisor' | 'teamleader' | 'unsubscribed'
-  const [showRegistrarDropdown, setShowRegistrarDropdown] = useState(false);
-  const [showSupervisorDropdown, setShowSupervisorDropdown] = useState(false);
+  const [hierarchy, setHierarchy] = useState<{ teamLeaders: any[]; supervisors: any[]; registrars: any[] }>({ teamLeaders: [], supervisors: [], registrars: [] });
 
   // Filter dropdown options
   const [empOptions, setEmpOptions] = useState<{ id: number; fullName: string }[]>([]);
@@ -573,6 +572,7 @@ export const StudentsPage = () => {
       if (filterSupervisorEmployeeId) url += `&supervisorEmployeeId=${filterSupervisorEmployeeId}`;
       if (filterRegisteredByUserId) url += `&registeredByUserId=${filterRegisteredByUserId}`;
       if (filterNoSubscriptions) url += `&noSubscriptions=true`;
+      if (filterTeamLeaderUserId) url += `&teamLeaderUserId=${filterTeamLeaderUserId}`;
       if (filterGradeResult) url += `&gradeResult=${encodeURIComponent(filterGradeResult)}`;
       if (filterPaymentStatus) url += `&paymentStatus=${encodeURIComponent(filterPaymentStatus)}`;
 
@@ -584,12 +584,16 @@ export const StudentsPage = () => {
     } catch (err: any) {
       toast.error('خطأ في تحميل البيانات', err.message);
     }
-  }, [deepFilters, filterSectionId, filterCourseId, filterDiplomaId, filterMarkerEmployeeId, filterSupervisorEmployeeId, filterRegisteredByUserId, filterNoSubscriptions, filterGradeResult, filterPaymentStatus]);
+  }, [deepFilters, filterSectionId, filterCourseId, filterDiplomaId, filterMarkerEmployeeId, filterSupervisorEmployeeId, filterRegisteredByUserId, filterNoSubscriptions, filterTeamLeaderUserId, filterGradeResult, filterPaymentStatus]);
 
   const handleSearch = (q: string) => {
     setSearchQuery(q);
     loadStudents(q);
   };
+
+  useEffect(() => {
+    apiFetch('/students/users/hierarchy').then(setHierarchy).catch(() => {});
+  }, []);
 
   const applyFilter = () => { loadStudents(searchQuery); };
 
@@ -601,7 +605,7 @@ export const StudentsPage = () => {
     setFilterSupervisorEmployeeId('');
     setFilterRegisteredByUserId('');
     setFilterNoSubscriptions(false);
-    setActiveRoleFilter(null);
+    setFilterTeamLeaderUserId('');
     setFilterGradeResult('');
     setFilterPaymentStatus('');
     setTimeout(() => loadStudents(searchQuery), 0);
@@ -1264,12 +1268,12 @@ export const StudentsPage = () => {
 
       {/* ===== STUDENTS TABLE (LEFT in RTL — second in DOM) ===== */}
       <div className="glass-panel split-panel" style={{ flex: 1, minWidth: 0, borderRadius: 'var(--radius-lg) 0 0 var(--radius-lg)', margin: 0 }}>
-        {/* ===== STATS CARDS ===== */}
+        {/* ===== STATS CARDS with Role Selects ===== */}
         <div style={{
           display: 'flex', gap: 10, marginBottom: 20,
           flexWrap: 'wrap',
         }}>
-          <div className="stat-card blue" style={{ flex: '0 0 auto', minWidth: 140, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
+          <div className="stat-card blue" style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
             <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
               <Users size={18} />
             </div>
@@ -1278,7 +1282,7 @@ export const StudentsPage = () => {
               <div className="stat-label" style={{ marginBottom: 0 }}>إجمالي الطلاب</div>
             </div>
           </div>
-          <div className="stat-card green" style={{ flex: '0 0 auto', minWidth: 110, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
+          <div className="stat-card green" style={{ flex: '0 0 auto', minWidth: 100, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
             <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
               <CheckSquare size={18} />
             </div>
@@ -1287,78 +1291,106 @@ export const StudentsPage = () => {
               <div className="stat-label" style={{ marginBottom: 0 }}>نشط</div>
             </div>
           </div>
-          {/* المسجل — students registered by current user */}
-          {user?.id && (
-            <div className={`stat-card teal ${activeRoleFilter === 'registrar' ? 'active-filter' : ''}`}
-              onClick={() => {
-                if (activeRoleFilter === 'registrar') {
-                  setFilterRegisteredByUserId(''); setFilterNoSubscriptions(false); setActiveRoleFilter(null);
-                } else {
-                  setFilterRegisteredByUserId(String(user.id)); setFilterMarkerEmployeeId(''); setFilterSupervisorEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter('registrar');
-                }
-                setTimeout(() => loadStudents(searchQuery), 0);
-              }}
-              style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: activeRoleFilter === 'registrar' ? '2px solid var(--primary)' : undefined }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
-                <User size={18} />
+
+          {/* قائد الفريق — select team leader, cascades to supervisors + registrars */}
+          <div className={`stat-card amber ${filterTeamLeaderUserId ? 'active-filter' : ''}`}
+            style={{
+              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              border: filterTeamLeaderUserId ? '2px solid var(--primary)' : undefined,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
+                <Users size={16} />
               </div>
-              <div>
-                <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.filter(s => s.registeredByUserId === Number(user.id) || s.markerEmployeeId === Number(user.employeeId)).length}</div>
-                <div className="stat-label" style={{ marginBottom: 0 }}>المسجل لدي</div>
+              <div style={{ flex: 1 }}>
+                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterTeamLeaderUserId ? students.length : hierarchy.teamLeaders.length}</div>
+                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>قائد الفريق</div>
               </div>
             </div>
-          )}
-          {/* المشرف — students supervised by me */}
-          {user?.employeeId && (
-            <div className={`stat-card purple ${activeRoleFilter === 'supervisor' ? 'active-filter' : ''}`}
-              onClick={() => {
-                if (activeRoleFilter === 'supervisor') {
-                  setFilterSupervisorEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter(null);
-                } else {
-                  setFilterSupervisorEmployeeId(String(user.employeeId)); setFilterRegisteredByUserId(''); setFilterMarkerEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter('supervisor');
-                }
+            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+              value={filterTeamLeaderUserId}
+              onChange={e => {
+                setFilterTeamLeaderUserId(e.target.value);
                 setTimeout(() => loadStudents(searchQuery), 0);
-              }}
-              style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: activeRoleFilter === 'supervisor' ? '2px solid var(--primary)' : undefined }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
-                <Shield size={18} />
+              }}>
+              <option value="">الكل</option>
+              {hierarchy.teamLeaders.map(tl => (
+                <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* المشرف — select supervisor, shows their direct registrars */}
+          <div className={`stat-card purple ${filterSupervisorEmployeeId ? 'active-filter' : ''}`}
+            style={{
+              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              border: filterSupervisorEmployeeId ? '2px solid var(--primary)' : undefined,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
+                <Shield size={16} />
               </div>
-              <div>
-                <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.filter(s => s.supervisorEmployeeId === Number(user.employeeId)).length}</div>
-                <div className="stat-label" style={{ marginBottom: 0 }}>المشرف عليهم</div>
+              <div style={{ flex: 1 }}>
+                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterSupervisorEmployeeId ? students.filter(s => s.supervisorEmployeeId === Number(filterSupervisorEmployeeId)).length : hierarchy.supervisors.length}</div>
+                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>المشرف</div>
               </div>
             </div>
-          )}
-          {/* قائد الفريق — students under my team */}
-          {user?.teamLeaderId && (
-            <div className={`stat-card amber ${activeRoleFilter === 'teamleader' ? 'active-filter' : ''}`}
-              onClick={() => {
-                if (activeRoleFilter === 'teamleader') {
-                  setFilterRegisteredByUserId(''); setFilterNoSubscriptions(false); setActiveRoleFilter(null);
-                } else {
-                  setFilterRegisteredByUserId(''); setFilterMarkerEmployeeId(''); setFilterSupervisorEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter('teamleader');
-                }
+            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+              value={filterSupervisorEmployeeId}
+              onChange={e => {
+                setFilterSupervisorEmployeeId(e.target.value);
                 setTimeout(() => loadStudents(searchQuery), 0);
-              }}
-              style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: activeRoleFilter === 'teamleader' ? '2px solid var(--primary)' : undefined }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
-                <Users size={18} />
+              }}>
+              <option value="">الكل</option>
+              {hierarchy.supervisors.filter(s => s.employeeId).map(sup => (
+                <option key={sup.id} value={sup.employeeId}>{sup.fullName}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* المسجل — select registrar, shows their registered students */}
+          <div className={`stat-card teal ${filterRegisteredByUserId ? 'active-filter' : ''}`}
+            style={{
+              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              border: filterRegisteredByUserId ? '2px solid var(--primary)' : undefined,
+              transition: 'all 0.2s',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
+                <User size={16} />
               </div>
-              <div>
-                <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.length}</div>
-                <div className="stat-label" style={{ marginBottom: 0 }}>فريقي</div>
+              <div style={{ flex: 1 }}>
+                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterRegisteredByUserId ? students.filter(s => s.registeredByUserId === Number(filterRegisteredByUserId)).length : hierarchy.registrars.length}</div>
+                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>المسجل</div>
               </div>
             </div>
-          )}
+            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+              value={filterRegisteredByUserId}
+              onChange={e => {
+                setFilterRegisteredByUserId(e.target.value);
+                setFilterMarkerEmployeeId('');
+                setTimeout(() => loadStudents(searchQuery), 0);
+              }}>
+              <option value="">الكل</option>
+              {hierarchy.registrars.map(reg => (
+                <option key={reg.id} value={reg.id}>{reg.fullName}</option>
+              ))}
+            </select>
+          </div>
+
           {/* غير مشترك */}
           <div className={`stat-card pink ${filterNoSubscriptions ? 'active-filter' : ''}`}
             onClick={() => {
               setFilterNoSubscriptions(!filterNoSubscriptions);
-              setFilterRegisteredByUserId(''); setFilterMarkerEmployeeId(''); setFilterSupervisorEmployeeId('');
-              setActiveRoleFilter(null);
               setTimeout(() => loadStudents(searchQuery), 0);
             }}
-            style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: filterNoSubscriptions ? '2px solid var(--danger)' : undefined }}>
+            style={{
+              flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14,
+              padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s',
+              border: filterNoSubscriptions ? '2px solid var(--danger)' : undefined
+            }}>
             <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
               <XCircle size={18} />
             </div>
