@@ -1311,221 +1311,93 @@ export const StudentsPage = () => {
 
       {/* ===== STUDENTS TABLE (LEFT in RTL — second in DOM) ===== */}
       <div className="glass-panel split-panel" style={{ flex: 1, minWidth: 0, borderRadius: 'var(--radius-lg) 0 0 var(--radius-lg)', margin: 0 }}>
-        {/* ===== STATS CARDS with Role Selects ===== */}
-        <div style={{
-          display: 'flex', gap: 10, marginBottom: 20,
-          flexWrap: 'wrap',
-        }}>
-          <div className="stat-card blue" style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
-              <Users size={18} />
-            </div>
-            <div>
-              <div className="stat-value" style={{ fontSize: '1.3rem' }}>{totalCount}</div>
-              <div className="stat-label" style={{ marginBottom: 0 }}>إجمالي الطلاب</div>
-            </div>
+        {/* ===== STATS CARDS — موحدة, compact ===== */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          {/* إجمالي الطلاب */}
+          <div className="stat-card blue" style={{ flex: '0 0 auto', minWidth: 110, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><Users size={13} /></div>
+            <div><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2 }}>{totalCount}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>إجمالي الطلاب</div></div>
           </div>
-          <div className="stat-card green" style={{ flex: '0 0 auto', minWidth: 100, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
-              <CheckSquare size={18} />
-            </div>
-            <div>
-              <div className="stat-value" style={{ fontSize: '1.3rem', color: 'var(--success)' }}>{students.filter(s => s.status === 'ACTIVE').length}</div>
-              <div className="stat-label" style={{ marginBottom: 0 }}>نشط</div>
-            </div>
+          {/* نشط */}
+          <div className="stat-card green" style={{ flex: '0 0 auto', minWidth: 90, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><CheckSquare size={13} /></div>
+            <div><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2, color: 'var(--success)' }}>{students.filter(s => s.status === 'ACTIVE').length}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>نشط</div></div>
           </div>
-
-          {/* قائد الفريق — ثابت لغير المدير, متغير للمدير */}
-          <div className={`stat-card amber ${filterTeamLeaderUserId ? 'active-filter' : ''}`}
-            style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
-              border: filterTeamLeaderUserId ? '2px solid var(--primary)' : undefined,
-              transition: 'all 0.2s',
-            }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
-                <Users size={16} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterTeamLeaderUserId ? students.length : hierarchy.teamLeaders.length}</div>
-                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>قائد الفريق</div>
-              </div>
-            </div>
+          {/* قائد الفريق */}
+          <div className={`stat-card amber ${filterTeamLeaderUserId ? 'active-filter' : ''}`} style={{ flex: '0 0 auto', minWidth: 200, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, border: filterTeamLeaderUserId ? '2px solid var(--primary)' : undefined, transition: 'all 0.2s' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><Users size={13} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2 }}>{filterTeamLeaderUserId ? students.length : hierarchy.teamLeaders.length}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>قائد الفريق</div></div>
             {!isAdmin ? (
-              <div style={{ width: '100%', fontSize: '0.82rem', padding: '4px 8px', opacity: 0.9, fontWeight: 600 }}>
-                {hierarchy.teamLeaders[0]?.fullName || '—'}
-              </div>
+              <div style={{ width: 90, fontSize: '0.62rem', padding: '1px 4px', opacity: 0.9, fontWeight: 600, textAlign: 'center', flexShrink: 0 }}>{hierarchy.teamLeaders[0]?.fullName || '—'}</div>
             ) : (
-              <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
-                value={filterTeamLeaderUserId}
-                onChange={e => {
-                  setFilterTeamLeaderUserId(e.target.value);
-                  setTimeout(() => loadStudentsRef.current(searchQuery), 0);
-                }}>
+              <select className="glass-input" style={{ width: 90, fontSize: '0.62rem', padding: '1px 4px', flexShrink: 0 }} value={filterTeamLeaderUserId} onChange={e => { setFilterTeamLeaderUserId(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                 <option value="">الكل</option>
-                {hierarchy.teamLeaders.map(tl => (
-                  <option key={tl.id} value={tl.id}>{tl.fullName}</option>
-                ))}
+                {hierarchy.teamLeaders.map(tl => <option key={tl.id} value={tl.id}>{tl.fullName}</option>)}
               </select>
             )}
           </div>
-
-          {/* المشرف — ثابت للمشرفين والمسجلين, متغير للمدير وقائد الفريق */}
-          <div className={`stat-card purple ${filterSupervisorEmployeeId ? 'active-filter' : ''}`}
-            style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
-              border: filterSupervisorEmployeeId ? '2px solid var(--primary)' : undefined,
-              transition: 'all 0.2s',
-            }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
-                <Shield size={16} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterSupervisorEmployeeId ? students.filter(s => s.supervisorEmployeeId === Number(filterSupervisorEmployeeId)).length : hierarchy.supervisors.length}</div>
-                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>المشرف</div>
-              </div>
-            </div>
+          {/* المشرف */}
+          <div className={`stat-card purple ${filterSupervisorEmployeeId ? 'active-filter' : ''}`} style={{ flex: '0 0 auto', minWidth: 200, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, border: filterSupervisorEmployeeId ? '2px solid var(--primary)' : undefined, transition: 'all 0.2s' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><Shield size={13} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2 }}>{filterSupervisorEmployeeId ? students.filter(s => s.supervisorEmployeeId === Number(filterSupervisorEmployeeId)).length : hierarchy.supervisors.length}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>المشرف</div></div>
             {!isAdmin && !isTeamLeader ? (
-              <div style={{ width: '100%', fontSize: '0.82rem', padding: '4px 8px', opacity: 0.9, fontWeight: 600 }}>
-                {hierarchy.supervisors[0]?.fullName || '—'}
-              </div>
+              <div style={{ width: 90, fontSize: '0.62rem', padding: '1px 4px', opacity: 0.9, fontWeight: 600, textAlign: 'center', flexShrink: 0 }}>{hierarchy.supervisors[0]?.fullName || '—'}</div>
             ) : (
-              <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
-                value={filterSupervisorEmployeeId}
-                onChange={e => {
-                  setFilterSupervisorEmployeeId(e.target.value);
-                  setTimeout(() => loadStudentsRef.current(searchQuery), 0);
-                }}>
+              <select className="glass-input" style={{ width: 90, fontSize: '0.62rem', padding: '1px 4px', flexShrink: 0 }} value={filterSupervisorEmployeeId} onChange={e => { setFilterSupervisorEmployeeId(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                 <option value="">الكل</option>
-                {hierarchy.supervisors.filter(s => s.employeeId).map(sup => (
-                  <option key={sup.id} value={sup.employeeId}>{sup.fullName}</option>
-                ))}
+                {hierarchy.supervisors.filter(s => s.employeeId).map(sup => <option key={sup.id} value={sup.employeeId}>{sup.fullName}</option>)}
               </select>
             )}
           </div>
-
-          {/* المسجل — ثابت للمسجل فقط, متغير للمدير وقائد الفريق والمشرف */}
-          <div className={`stat-card teal ${filterRegisteredByUserId ? 'active-filter' : ''}`}
-            style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
-              border: filterRegisteredByUserId ? '2px solid var(--primary)' : undefined,
-              transition: 'all 0.2s',
-            }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
-                <User size={16} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterRegisteredByUserId ? students.filter(s => s.registeredByUserId === Number(filterRegisteredByUserId)).length : hierarchy.registrars.length}</div>
-                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>المسجل</div>
-              </div>
-            </div>
+          {/* المسجل */}
+          <div className={`stat-card teal ${filterRegisteredByUserId ? 'active-filter' : ''}`} style={{ flex: '0 0 auto', minWidth: 200, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, border: filterRegisteredByUserId ? '2px solid var(--primary)' : undefined, transition: 'all 0.2s' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><User size={13} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2 }}>{filterRegisteredByUserId ? students.filter(s => s.registeredByUserId === Number(filterRegisteredByUserId)).length : hierarchy.registrars.length}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>المسجل</div></div>
             {isRegistrar ? (
-              <div style={{ width: '100%', fontSize: '0.82rem', padding: '4px 8px', opacity: 0.9, fontWeight: 600 }}>
-                {hierarchy.registrars[0]?.fullName || '—'}
-              </div>
+              <div style={{ width: 90, fontSize: '0.62rem', padding: '1px 4px', opacity: 0.9, fontWeight: 600, textAlign: 'center', flexShrink: 0 }}>{hierarchy.registrars[0]?.fullName || '—'}</div>
             ) : (
-              <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
-                value={filterRegisteredByUserId}
-                onChange={e => {
-                  setFilterRegisteredByUserId(e.target.value);
-                  setFilterMarkerEmployeeId('');
-                  setTimeout(() => loadStudentsRef.current(searchQuery), 0);
-                }}>
+              <select className="glass-input" style={{ width: 90, fontSize: '0.62rem', padding: '1px 4px', flexShrink: 0 }} value={filterRegisteredByUserId} onChange={e => { setFilterRegisteredByUserId(e.target.value); setFilterMarkerEmployeeId(''); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                 <option value="">الكل</option>
-                {hierarchy.registrars.map(reg => (
-                  <option key={reg.id} value={reg.id}>{reg.fullName}</option>
-                ))}
+                {hierarchy.registrars.map(reg => <option key={reg.id} value={reg.id}>{reg.fullName}</option>)}
               </select>
             )}
           </div>
-
-          {/* نوع الاشتراك — دورة / دبلوم / غير مشترك */}
-          <div className={`stat-card pink ${filterNoSubscriptionType ? 'active-filter' : ''}`}
-            style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
-              border: filterNoSubscriptionType ? '2px solid var(--danger)' : undefined,
-              transition: 'all 0.2s',
-            }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
-                <BookOpen size={16} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>
-                  {filterNoSubscriptionType ? students.length : totalCount}
-                </div>
-                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>الاشتراك</div>
-              </div>
-            </div>
-            <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
-              value={filterNoSubscriptionType}
-              onChange={e => {
-                setFilterNoSubscriptionType(e.target.value);
-                setTimeout(() => loadStudentsRef.current(searchQuery), 0);
-              }}>
+          {/* الاشتراك */}
+          <div className={`stat-card pink ${filterNoSubscriptionType ? 'active-filter' : ''}`} style={{ flex: '0 0 auto', minWidth: 180, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, border: filterNoSubscriptionType ? '2px solid var(--danger)' : undefined, transition: 'all 0.2s' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><BookOpen size={13} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2 }}>{filterNoSubscriptionType ? students.length : totalCount}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>الاشتراك</div></div>
+            <select className="glass-input" style={{ width: 80, fontSize: '0.62rem', padding: '1px 4px', flexShrink: 0 }} value={filterNoSubscriptionType} onChange={e => { setFilterNoSubscriptionType(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
               <option value="">الكل</option>
               <option value="course">دورة</option>
               <option value="diploma">دبلوم</option>
               <option value="unsubscribed">غير مشترك</option>
             </select>
           </div>
-        </div>
-
-        {/* ===== STATUS CARD with Select ===== */}
-        <div className={`stat-card ${filterStatus ? 'active-filter' : ''}`}
-          style={{
-            flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
-            border: filterStatus ? '2px solid var(--primary)' : undefined,
-            transition: 'all 0.2s',
-          }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
-              <CheckSquare size={16} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterStatus ? students.filter(s => s.status === filterStatus).length : totalCount}</div>
-              <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>حالة الطالب</div>
-            </div>
+          {/* حالة الطالب */}
+          <div className={`stat-card ${filterStatus ? 'active-filter' : ''}`} style={{ flex: '0 0 auto', minWidth: 180, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, border: filterStatus ? '2px solid var(--primary)' : undefined, transition: 'all 0.2s' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><CheckSquare size={13} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2 }}>{filterStatus ? students.filter(s => s.status === filterStatus).length : totalCount}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>حالة الطالب</div></div>
+            <select className="glass-input" style={{ width: 70, fontSize: '0.62rem', padding: '1px 4px', flexShrink: 0 }} value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+              <option value="">الكل</option>
+              <option value="ACTIVE">نشط</option>
+              <option value="POSTPONED">مؤجل</option>
+              <option value="WITHDRAWN">منسحب</option>
+              <option value="CANCELED">ملغي</option>
+              <option value="FINISHED">منتهي</option>
+            </select>
           </div>
-          <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
-            value={filterStatus}
-            onChange={e => { setFilterStatus(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-            <option value="">الكل</option>
-            <option value="ACTIVE">نشط</option>
-            <option value="POSTPONED">مؤجل</option>
-            <option value="WITHDRAWN">منسحب</option>
-            <option value="CANCELED">ملغي</option>
-            <option value="FINISHED">منتهي</option>
-          </select>
-        </div>
-
-        {/* ===== STUDENT TYPE CARD with Select ===== */}
-        <div className={`stat-card ${filterStudentType ? 'active-filter' : ''}`}
-          style={{
-            flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
-            border: filterStudentType ? '2px solid var(--primary)' : undefined,
-            transition: 'all 0.2s',
-          }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
-              <GraduationCap size={16} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterStudentType ? students.filter(s => s.studentType === filterStudentType).length : totalCount}</div>
-              <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>صفة الطالب</div>
-            </div>
+          {/* صفة الطالب */}
+          <div className={`stat-card ${filterStudentType ? 'active-filter' : ''}`} style={{ flex: '0 0 auto', minWidth: 180, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, border: filterStudentType ? '2px solid var(--primary)' : undefined, transition: 'all 0.2s' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><GraduationCap size={13} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="stat-value" style={{ fontSize: '0.85rem', lineHeight: 1.2 }}>{filterStudentType ? students.filter(s => s.studentType === filterStudentType).length : totalCount}</div><div className="stat-label" style={{ marginBottom: 0, fontSize: '0.62rem' }}>صفة الطالب</div></div>
+            <select className="glass-input" style={{ width: 65, fontSize: '0.62rem', padding: '1px 4px', flexShrink: 0 }} value={filterStudentType} onChange={e => { setFilterStudentType(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+              <option value="">الكل</option>
+              <option value="UNIVERSITY">جامعي</option>
+              <option value="HIGH_SCHOOL">ثانوي</option>
+              <option value="EMPLOYEE">موظف</option>
+              <option value="OTHER">أخرى</option>
+            </select>
           </div>
-          <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
-            value={filterStudentType}
-            onChange={e => { setFilterStudentType(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-            <option value="">الكل</option>
-            <option value="UNIVERSITY">جامعي</option>
-            <option value="HIGH_SCHOOL">ثانوي</option>
-            <option value="EMPLOYEE">موظف</option>
-            <option value="OTHER">أخرى</option>
-          </select>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
