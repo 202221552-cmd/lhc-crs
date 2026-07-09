@@ -552,12 +552,7 @@ export const StudentsPage = () => {
 
   const loadStudents = useCallback(async (q = '', filters?: DeepSearchFilters) => {
     try {
-      // Use nameAr + nationalId for fast-path DB filtering, plus query for fuzzy fallback
-      let url = `/students?query=${encodeURIComponent(q)}&nameAr=${encodeURIComponent(q)}&limit=300`;
-      // Also search by nationalId if the query looks like a number/ID
-      if (q && /[\d\-]+/.test(q)) {
-        url += `&nationalId=${encodeURIComponent(q)}`;
-      }
+      let url = `/students?query=${encodeURIComponent(q)}&limit=300`;
       const f = filters || deepFilters;
       if (f.status) url += `&status=${f.status}`;
       if (f.studentType) url += `&studentType=${f.studentType}`;

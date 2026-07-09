@@ -1,7 +1,7 @@
 import express from 'express';
 import { prisma } from '../index.js';
 import { authMiddleware, requirePermission, selfOrPerm } from '../middleware/auth.js';
-import { normalizeNumbers, smartFilter } from '../utils/searchEngine.js';
+import { normalizeNumbers } from '../utils/searchEngine.js';
 import { checkOverlap, daysOverlap } from './section.js';
 
 const router = express.Router();
@@ -225,126 +225,76 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
     // Clean up empty AND
     if (where.AND.length === 0) delete where.AND;
 
-    // Smart query search — needs post-filter since it's fuzzy across many fields
-    let smartQuery: string | null = null;
+    // Simple query search — push to DB as OR across multiple fields
     if (query && typeof query === 'string' && query.trim()) {
-      smartQuery = normalizeNumbers(query.trim());
+      const q = normalizeNumbers(query.trim());
+      where.AND.push({
+        OR: [
+          { fullNameAr: { contains: q } },
+          { fullNameEn: { contains: q, mode: 'insensitive' } },
+          { nationalId: { contains: q } },
+          { passportId: { contains: q } },
+          { personalId: { contains: q } },
+          { id: { contains: q } },
+        ]
+      });
     }
 
-    // Need post-filters? Only if smart query or if a filter can't be pushed to Prisma
-    const needsPostFilter = !!smartQuery;
+    // Count total matching records (fast, with indexes)
+    const total = await prisma.student.count({ where });
 
-    if (!needsPostFilter) {
-      // Count total matching records (fast, with indexes)
-      const total = await prisma.student.count({ where });
-
-      // Paginated query with minimal includes
-      const data = await prisma.student.findMany({
-        where,
-        include: {
-          markerEmployee: { select: { id: true, fullName: true } },
-          supervisorEmployee: { select: { id: true, fullName: true } },
-          registeredByUser: { select: { id: true, fullName: true, points: true } },
-          sections: {
-            select: {
-              id: true,
-              sectionId: true,
-              result: true,
-              grade: true,
-              isProject: true,
-              status: true,
-              section: {
-                select: {
-                  id: true,
-                  name: true,
-                  courseId: true,
-                  course: { select: { id: true, name: true, categoryId: true, category: { select: { id: true, name: true, nameAr: true } } } },
-                  instructor: { select: { id: true, name: true } },
-                  room: { select: { id: true, name: true } },
-                }
+    // Paginated query with minimal includes
+    const data = await prisma.student.findMany({
+      where,
+      include: {
+        markerEmployee: { select: { id: true, fullName: true } },
+        supervisorEmployee: { select: { id: true, fullName: true } },
+        registeredByUser: { select: { id: true, fullName: true, points: true } },
+        sections: {
+          select: {
+            id: true,
+            sectionId: true,
+            result: true,
+            grade: true,
+            isProject: true,
+            status: true,
+            section: {
+              select: {
+                id: true,
+                name: true,
+                courseId: true,
+                course: { select: { id: true, name: true, categoryId: true, category: { select: { id: true, name: true, nameAr: true } } } },
+                instructor: { select: { id: true, name: true } },
+                room: { select: { id: true, name: true } },
               }
-            },
-            orderBy: { enrollDate: 'desc' }
+            }
           },
-          diplomaSubscriptions: {
-            select: { id: true, diplomaId: true, status: true, diploma: { select: { id: true, name: true } }, entity: { select: { id: true, name: true } } },
-            orderBy: { createdAt: 'desc' }
-          },
-          courseSubscriptions: {
-            select: { id: true, courseId: true, status: true, course: { select: { id: true, name: true } }, entity: { select: { id: true, name: true } } },
-            orderBy: { createdAt: 'desc' }
-          },
+          orderBy: { enrollDate: 'desc' }
         },
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-        orderBy: { createdAt: 'desc' }
-      });
-
-      // Parse JSON fields
-      const parsed = data.map(s => ({
-        ...s,
-        phones: tryParse(s.phones, []),
-        phoneCodes: tryParse(s.phoneCodes, []),
-        whatsappOnly: tryParse(s.whatsappOnly, []),
-        isIdNumber: tryParse(s.isIdNumber, []),
-      }));
-
-      return res.json({ data: parsed, total, page: pageNum, limit: limitNum });
-    } else {
-      // Fallback for smart query: load first page + filter in memory
-      // (smart query searches across many fields, hard to push to DB)
-      let students = await prisma.student.findMany({
-        where,
-        include: {
-          markerEmployee: { select: { id: true, fullName: true } },
-          supervisorEmployee: { select: { id: true, fullName: true } },
-          registeredByUser: { select: { id: true, fullName: true, points: true } },
-          sections: {
-            select: {
-              id: true, sectionId: true, result: true, grade: true, isProject: true, status: true,
-              section: {
-                select: {
-                  id: true, name: true, courseId: true,
-                  course: { select: { id: true, name: true, categoryId: true, category: { select: { id: true, name: true, nameAr: true } } } },
-                  instructor: { select: { id: true, name: true } },
-                  room: { select: { id: true, name: true } },
-                }
-              }
-            },
-            orderBy: { enrollDate: 'desc' }
-          },
-          diplomaSubscriptions: {
-            select: { id: true, diplomaId: true, status: true, diploma: { select: { id: true, name: true } }, entity: { select: { id: true, name: true } } },
-            orderBy: { createdAt: 'desc' }
-          },
-          courseSubscriptions: {
-            select: { id: true, courseId: true, status: true, course: { select: { id: true, name: true } }, entity: { select: { id: true, name: true } } },
-            orderBy: { createdAt: 'desc' }
-          },
+        diplomaSubscriptions: {
+          select: { id: true, diplomaId: true, status: true, diploma: { select: { id: true, name: true } }, entity: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'desc' }
         },
-        orderBy: { createdAt: 'desc' }
-      });
+        courseSubscriptions: {
+          select: { id: true, courseId: true, status: true, course: { select: { id: true, name: true } }, entity: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'desc' }
+        },
+      },
+      skip: (pageNum - 1) * limitNum,
+      take: limitNum,
+      orderBy: { createdAt: 'desc' }
+    });
 
-      // Apply smart filter
-      if (smartQuery) {
-        students = smartFilter(students, smartQuery, [
-          'fullNameAr', 'fullNameEn', 'nationalId', 'passportId',
-          'personalId', 'phones', 'universityId', 'id'
-        ]);
-      }
+    // Parse JSON fields
+    const parsed = data.map(s => ({
+      ...s,
+      phones: tryParse(s.phones, []),
+      phoneCodes: tryParse(s.phoneCodes, []),
+      whatsappOnly: tryParse(s.whatsappOnly, []),
+      isIdNumber: tryParse(s.isIdNumber, []),
+    }));
 
-      const total = students.length;
-      const sliced = students.slice((pageNum - 1) * limitNum, pageNum * limitNum);
-      const parsed = sliced.map(s => ({
-        ...s,
-        phones: tryParse(s.phones, []),
-        phoneCodes: tryParse(s.phoneCodes, []),
-        whatsappOnly: tryParse(s.whatsappOnly, []),
-        isIdNumber: tryParse(s.isIdNumber, []),
-      }));
-
-      return res.json({ data: parsed, total, page: pageNum, limit: limitNum });
-    }
+    return res.json({ data: parsed, total, page: pageNum, limit: limitNum });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'خطأ في جلب الطلاب' });
