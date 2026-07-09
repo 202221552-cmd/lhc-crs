@@ -1473,62 +1473,59 @@ export const StudentsPage = () => {
           </div>
         </div>
 
-        {/* ===== STATUS CARDS ===== */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-          {[
-            { key: '', label: 'الكل', icon: <Users size={16} />, color: 'var(--primary)' },
-            { key: 'ACTIVE', label: 'نشط', icon: <CheckSquare size={16} />, color: 'var(--success)' },
-            { key: 'POSTPONED', label: 'مؤجل', icon: <Clock size={16} />, color: 'var(--accent)' },
-            { key: 'WITHDRAWN', label: 'منسحب', icon: <XCircle size={16} />, color: 'var(--danger)' },
-            { key: 'CANCELED', label: 'ملغي', icon: <X size={16} />, color: 'var(--text-muted)' },
-            { key: 'FINISHED', label: 'منتهي', icon: <GraduationCap size={16} />, color: 'var(--secondary)' },
-          ].map(st => (
-            <div key={st.key || '__all__'} className="stat-card" style={{
-              flex: '0 0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10,
-              cursor: 'pointer', borderRadius: 10, minWidth: 90,
-              border: filterStatus === st.key ? `2px solid ${st.color}` : undefined,
-              background: filterStatus === st.key ? 'var(--primary-light)' : undefined,
-              transition: 'all 0.15s',
-            }}
-              onClick={() => { setFilterStatus(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 32, height: 32, borderRadius: 8, flexShrink: 0, color: st.color }}>
-                {st.icon}
-              </div>
-              <div>
-                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{st.key ? students.filter(s => s.status === st.key).length : totalCount}</div>
-                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>{st.label}</div>
-              </div>
+        {/* ===== STATUS CARD with Select ===== */}
+        <div className={`stat-card ${filterStatus ? 'active-filter' : ''}`}
+          style={{
+            flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+            border: filterStatus ? '2px solid var(--primary)' : undefined,
+            transition: 'all 0.2s',
+          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
+              <CheckSquare size={16} />
             </div>
-          ))}
+            <div style={{ flex: 1 }}>
+              <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterStatus ? students.filter(s => s.status === filterStatus).length : totalCount}</div>
+              <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>حالة الطالب</div>
+            </div>
+          </div>
+          <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+            value={filterStatus}
+            onChange={e => { setFilterStatus(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+            <option value="">الكل</option>
+            <option value="ACTIVE">نشط</option>
+            <option value="POSTPONED">مؤجل</option>
+            <option value="WITHDRAWN">منسحب</option>
+            <option value="CANCELED">ملغي</option>
+            <option value="FINISHED">منتهي</option>
+          </select>
         </div>
 
-        {/* ===== STUDENT TYPE CARDS ===== */}
-        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.82rem', opacity: 0.7 }}>صفة الطالب</h4>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-          {[
-            { key: '', label: 'الكل', icon: <Users size={16} />, color: 'var(--primary)' },
-            { key: 'UNIVERSITY', label: 'جامعي', icon: <GraduationCap size={16} />, color: 'var(--accent)' },
-            { key: 'HIGH_SCHOOL', label: 'ثانوي', icon: <BookOpen size={16} />, color: 'var(--secondary)' },
-            { key: 'EMPLOYEE', label: 'موظف', icon: <Building2 size={16} />, color: 'var(--success)' },
-            { key: 'OTHER', label: 'أخرى', icon: <Users size={16} />, color: 'var(--text-muted)' },
-          ].map(st => (
-            <div key={st.key || '__all__'} className="stat-card" style={{
-              flex: '0 0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10,
-              cursor: 'pointer', borderRadius: 10, minWidth: 90,
-              border: filterStudentType === st.key ? `2px solid ${st.color}` : undefined,
-              background: filterStudentType === st.key ? 'var(--primary-light)' : undefined,
-              transition: 'all 0.15s',
-            }}
-              onClick={() => { setFilterStudentType(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 32, height: 32, borderRadius: 8, flexShrink: 0, color: st.color }}>
-                {st.icon}
-              </div>
-              <div>
-                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{st.key ? students.filter(s => s.studentType === st.key).length : totalCount}</div>
-                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>{st.label}</div>
-              </div>
+        {/* ===== STUDENT TYPE CARD with Select ===== */}
+        <div className={`stat-card ${filterStudentType ? 'active-filter' : ''}`}
+          style={{
+            flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+            border: filterStudentType ? '2px solid var(--primary)' : undefined,
+            transition: 'all 0.2s',
+          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
+              <GraduationCap size={16} />
             </div>
-          ))}
+            <div style={{ flex: 1 }}>
+              <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{filterStudentType ? students.filter(s => s.studentType === filterStudentType).length : totalCount}</div>
+              <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>صفة الطالب</div>
+            </div>
+          </div>
+          <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+            value={filterStudentType}
+            onChange={e => { setFilterStudentType(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+            <option value="">الكل</option>
+            <option value="UNIVERSITY">جامعي</option>
+            <option value="HIGH_SCHOOL">ثانوي</option>
+            <option value="EMPLOYEE">موظف</option>
+            <option value="OTHER">أخرى</option>
+          </select>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
