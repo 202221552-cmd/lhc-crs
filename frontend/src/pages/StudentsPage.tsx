@@ -1338,11 +1338,11 @@ export const StudentsPage = () => {
           {/* قائد الفريق — ثابت لغير المدير, متغير للمدير */}
           <div className={`stat-card amber ${filterTeamLeaderUserId ? 'active-filter' : ''}`}
             style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
               border: filterTeamLeaderUserId ? '2px solid var(--primary)' : undefined,
               transition: 'all 0.2s',
             }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
                 <Users size={16} />
               </div>
@@ -1356,7 +1356,7 @@ export const StudentsPage = () => {
                 {hierarchy.teamLeaders[0]?.fullName || '—'}
               </div>
             ) : (
-              <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+              <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
                 value={filterTeamLeaderUserId}
                 onChange={e => {
                   setFilterTeamLeaderUserId(e.target.value);
@@ -1373,11 +1373,11 @@ export const StudentsPage = () => {
           {/* المشرف — ثابت للمشرفين والمسجلين, متغير للمدير وقائد الفريق */}
           <div className={`stat-card purple ${filterSupervisorEmployeeId ? 'active-filter' : ''}`}
             style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
               border: filterSupervisorEmployeeId ? '2px solid var(--primary)' : undefined,
               transition: 'all 0.2s',
             }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
                 <Shield size={16} />
               </div>
@@ -1391,7 +1391,7 @@ export const StudentsPage = () => {
                 {hierarchy.supervisors[0]?.fullName || '—'}
               </div>
             ) : (
-              <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+              <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
                 value={filterSupervisorEmployeeId}
                 onChange={e => {
                   setFilterSupervisorEmployeeId(e.target.value);
@@ -1408,11 +1408,11 @@ export const StudentsPage = () => {
           {/* المسجل — ثابت للمسجل فقط, متغير للمدير وقائد الفريق والمشرف */}
           <div className={`stat-card teal ${filterRegisteredByUserId ? 'active-filter' : ''}`}
             style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
               border: filterRegisteredByUserId ? '2px solid var(--primary)' : undefined,
               transition: 'all 0.2s',
             }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
                 <User size={16} />
               </div>
@@ -1426,7 +1426,7 @@ export const StudentsPage = () => {
                 {hierarchy.registrars[0]?.fullName || '—'}
               </div>
             ) : (
-              <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+              <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
                 value={filterRegisteredByUserId}
                 onChange={e => {
                   setFilterRegisteredByUserId(e.target.value);
@@ -1444,11 +1444,11 @@ export const StudentsPage = () => {
           {/* نوع الاشتراك — دورة / دبلوم / غير مشترك */}
           <div className={`stat-card pink ${filterNoSubscriptionType ? 'active-filter' : ''}`}
             style={{
-              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
               border: filterNoSubscriptionType ? '2px solid var(--danger)' : undefined,
               transition: 'all 0.2s',
             }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
               <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
                 <BookOpen size={16} />
               </div>
@@ -1459,7 +1459,7 @@ export const StudentsPage = () => {
                 <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>الاشتراك</div>
               </div>
             </div>
-            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+            <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
               value={filterNoSubscriptionType}
               onChange={e => {
                 setFilterNoSubscriptionType(e.target.value);
@@ -1476,11 +1476,11 @@ export const StudentsPage = () => {
         {/* ===== STATUS CARD with Select ===== */}
         <div className={`stat-card ${filterStatus ? 'active-filter' : ''}`}
           style={{
-            flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+            flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
             border: filterStatus ? '2px solid var(--primary)' : undefined,
             transition: 'all 0.2s',
           }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
               <CheckSquare size={16} />
             </div>
@@ -1489,7 +1489,7 @@ export const StudentsPage = () => {
               <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>حالة الطالب</div>
             </div>
           </div>
-          <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+          <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
             value={filterStatus}
             onChange={e => { setFilterStatus(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
             <option value="">الكل</option>
@@ -1504,11 +1504,11 @@ export const StudentsPage = () => {
         {/* ===== STUDENT TYPE CARD with Select ===== */}
         <div className={`stat-card ${filterStudentType ? 'active-filter' : ''}`}
           style={{
-            flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+            flex: '0 0 auto', minWidth: 180, padding: '12px 14px',
             border: filterStudentType ? '2px solid var(--primary)' : undefined,
             transition: 'all 0.2s',
           }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
               <GraduationCap size={16} />
             </div>
@@ -1517,7 +1517,7 @@ export const StudentsPage = () => {
               <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>صفة الطالب</div>
             </div>
           </div>
-          <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+          <select className="glass-input" style={{ width: '100%', fontSize: '0.72rem', padding: '2px 6px' }}
             value={filterStudentType}
             onChange={e => { setFilterStudentType(e.target.value); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
             <option value="">الكل</option>
