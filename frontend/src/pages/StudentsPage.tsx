@@ -405,7 +405,10 @@ export const StudentsPage = () => {
   const [filterSupervisorEmployeeId, setFilterSupervisorEmployeeId] = useState('');
   const [filterRegisteredByUserId, setFilterRegisteredByUserId] = useState('');
   const [filterNoSubscriptions, setFilterNoSubscriptions] = useState(false);
+  const [filterNoSubscriptionType, setFilterNoSubscriptionType] = useState(''); // '' | 'course' | 'diploma' | 'both'
   const [filterTeamLeaderUserId, setFilterTeamLeaderUserId] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStudentType, setFilterStudentType] = useState('');
   const [filterGradeResult, setFilterGradeResult] = useState('');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -571,8 +574,12 @@ export const StudentsPage = () => {
       if (filterMarkerEmployeeId) url += `&markerEmployeeId=${filterMarkerEmployeeId}`;
       if (filterSupervisorEmployeeId) url += `&supervisorEmployeeId=${filterSupervisorEmployeeId}`;
       if (filterRegisteredByUserId) url += `&registeredByUserId=${filterRegisteredByUserId}`;
-      if (filterNoSubscriptions) url += `&noSubscriptions=true`;
+      if (filterNoSubscriptionType === 'course') url += `&noCourseSubscriptions=true`;
+      else if (filterNoSubscriptionType === 'diploma') url += `&noDiplomaSubscriptions=true`;
+      else if (filterNoSubscriptionType === 'both') url += `&noSubscriptions=true`;
       if (filterTeamLeaderUserId) url += `&teamLeaderUserId=${filterTeamLeaderUserId}`;
+      if (filterStatus) url += `&status=${encodeURIComponent(filterStatus)}`;
+      if (filterStudentType) url += `&studentType=${encodeURIComponent(filterStudentType)}`;
       if (filterGradeResult) url += `&gradeResult=${encodeURIComponent(filterGradeResult)}`;
       if (filterPaymentStatus) url += `&paymentStatus=${encodeURIComponent(filterPaymentStatus)}`;
 
@@ -584,7 +591,7 @@ export const StudentsPage = () => {
     } catch (err: any) {
       toast.error('خطأ في تحميل البيانات', err.message);
     }
-  }, [deepFilters, filterSectionId, filterCourseId, filterDiplomaId, filterMarkerEmployeeId, filterSupervisorEmployeeId, filterRegisteredByUserId, filterNoSubscriptions, filterTeamLeaderUserId, filterGradeResult, filterPaymentStatus]);
+  }, [deepFilters, filterSectionId, filterCourseId, filterDiplomaId, filterMarkerEmployeeId, filterSupervisorEmployeeId, filterRegisteredByUserId, filterNoSubscriptionType, filterTeamLeaderUserId, filterStatus, filterStudentType, filterGradeResult, filterPaymentStatus]);
 
   const handleSearch = (q: string) => {
     setSearchQuery(q);
@@ -626,7 +633,10 @@ export const StudentsPage = () => {
     }).catch(() => {});
   }, []);
 
-  const applyFilter = () => { loadStudents(searchQuery); };
+  const applyFilter = () => { loadStudentsRef.current(searchQuery); };
+
+  const loadStudentsRef = useRef(loadStudents);
+  loadStudentsRef.current = loadStudents;
 
   const clearAllAdvancedFilters = () => {
     setFilterSectionId('');
@@ -635,14 +645,16 @@ export const StudentsPage = () => {
     setFilterMarkerEmployeeId('');
     setFilterSupervisorEmployeeId('');
     setFilterRegisteredByUserId('');
-    setFilterNoSubscriptions(false);
+    setFilterNoSubscriptionType('');
     setFilterTeamLeaderUserId('');
+    setFilterStatus('');
+    setFilterStudentType('');
     setFilterGradeResult('');
     setFilterPaymentStatus('');
-    setTimeout(() => loadStudents(searchQuery), 0);
+    setTimeout(() => loadStudentsRef.current(searchQuery), 0);
   };
 
-  const hasAdvancedFilters = filterSectionId || filterCourseId || filterDiplomaId || filterMarkerEmployeeId || filterGradeResult || filterPaymentStatus;
+  const hasAdvancedFilters = filterSectionId || filterCourseId || filterDiplomaId || filterMarkerEmployeeId || filterGradeResult || filterPaymentStatus || filterNoSubscriptionType || filterTeamLeaderUserId || filterSupervisorEmployeeId || filterRegisteredByUserId;
 
   const handleDeepSearch = (filters: DeepSearchFilters) => {
     setDeepFilters(filters);
@@ -1348,7 +1360,7 @@ export const StudentsPage = () => {
                 value={filterTeamLeaderUserId}
                 onChange={e => {
                   setFilterTeamLeaderUserId(e.target.value);
-                  setTimeout(() => loadStudents(searchQuery), 0);
+                  setTimeout(() => loadStudentsRef.current(searchQuery), 0);
                 }}>
                 <option value="">الكل</option>
                 {hierarchy.teamLeaders.map(tl => (
@@ -1383,7 +1395,7 @@ export const StudentsPage = () => {
                 value={filterSupervisorEmployeeId}
                 onChange={e => {
                   setFilterSupervisorEmployeeId(e.target.value);
-                  setTimeout(() => loadStudents(searchQuery), 0);
+                  setTimeout(() => loadStudentsRef.current(searchQuery), 0);
                 }}>
                 <option value="">الكل</option>
                 {hierarchy.supervisors.filter(s => s.employeeId).map(sup => (
@@ -1419,7 +1431,7 @@ export const StudentsPage = () => {
                 onChange={e => {
                   setFilterRegisteredByUserId(e.target.value);
                   setFilterMarkerEmployeeId('');
-                  setTimeout(() => loadStudents(searchQuery), 0);
+                  setTimeout(() => loadStudentsRef.current(searchQuery), 0);
                 }}>
                 <option value="">الكل</option>
                 {hierarchy.registrars.map(reg => (
@@ -1429,25 +1441,86 @@ export const StudentsPage = () => {
             )}
           </div>
 
-          {/* غير مشترك */}
-          <div className={`stat-card pink ${filterNoSubscriptions ? 'active-filter' : ''}`}
-            onClick={() => {
-              setFilterNoSubscriptions(!filterNoSubscriptions);
-              setTimeout(() => loadStudents(searchQuery), 0);
-            }}
+          {/* غير مشترك — مع اختيار دورة / دبلوم / الكل */}
+          <div className={`stat-card pink ${filterNoSubscriptionType ? 'active-filter' : ''}`}
             style={{
-              flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14,
-              padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s',
-              border: filterNoSubscriptions ? '2px solid var(--danger)' : undefined
+              flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
+              border: filterNoSubscriptionType ? '2px solid var(--danger)' : undefined,
+              transition: 'all 0.2s',
             }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
-              <XCircle size={18} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
+                <XCircle size={16} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{students.filter(s => !s.courseSubscriptions?.length && !s.diplomaSubscriptions?.length).length}</div>
+                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>غير مشترك</div>
+              </div>
             </div>
-            <div>
-              <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.filter(s => !s.courseSubscriptions?.length && !s.diplomaSubscriptions?.length).length}</div>
-              <div className="stat-label" style={{ marginBottom: 0 }}>غير مشترك</div>
-            </div>
+            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px', color: filterNoSubscriptionType ? 'var(--danger)' : undefined }}
+              value={filterNoSubscriptionType}
+              onChange={e => {
+                setFilterNoSubscriptionType(e.target.value);
+                setTimeout(() => loadStudentsRef.current(searchQuery), 0);
+              }}>
+              <option value="">الكل</option>
+              <option value="course">غير مشترك في دورات</option>
+              <option value="diploma">غير مشترك في دبلومات</option>
+              <option value="both">غير مشترك في الكل</option>
+            </select>
           </div>
+        </div>
+
+        {/* ===== STATUS CARDS ===== */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div className="stat-card" style={{ flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 10 }}
+            onClick={() => { setFilterStatus(''); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>الكل</span>
+            <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{totalCount}</span>
+          </div>
+          {[
+            { key: 'ACTIVE', label: 'نشط', color: 'var(--success)' },
+            { key: 'POSTPONED', label: 'مؤجل', color: 'var(--accent)' },
+            { key: 'WITHDRAWN', label: 'منسحب', color: 'var(--danger)' },
+            { key: 'CANCELED', label: 'ملغي', color: 'var(--text-muted)' },
+            { key: 'FINISHED', label: 'منتهي', color: 'var(--secondary)' },
+          ].map(st => (
+            <div key={st.key} className="stat-card" style={{
+              flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8,
+              cursor: 'pointer', borderRadius: 10,
+              border: filterStatus === st.key ? `2px solid ${st.color}` : undefined,
+            }}
+              onClick={() => { setFilterStatus(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: st.color }}>{st.label}</span>
+              <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{students.filter(s => s.status === st.key).length}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* ===== STUDENT TYPE CARDS ===== */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          <div className="stat-card" style={{ flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 10 }}
+            onClick={() => { setFilterStudentType(''); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>الكل</span>
+            <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{totalCount}</span>
+          </div>
+          {[
+            { key: 'UNIVERSITY', label: 'جامعي', icon: '🎓' },
+            { key: 'HIGH_SCHOOL', label: 'ثانوي', icon: '📚' },
+            { key: 'EMPLOYEE', label: 'موظف', icon: '💼' },
+            { key: 'OTHER', label: 'أخرى', icon: '📋' },
+          ].map(st => (
+            <div key={st.key} className="stat-card" style={{
+              flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8,
+              cursor: 'pointer', borderRadius: 10,
+              border: filterStudentType === st.key ? '2px solid var(--primary)' : undefined,
+            }}
+              onClick={() => { setFilterStudentType(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
+              <span style={{ fontSize: '0.82rem' }}>{st.icon}</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{st.label}</span>
+              <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{students.filter(s => s.studentType === st.key).length}</span>
+            </div>
+          ))}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
@@ -1511,7 +1584,7 @@ export const StudentsPage = () => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.75rem' }}>الشعبة</label>
                 <select className="glass-input" style={{ fontSize: '0.82rem' }}
-                  value={filterSectionId} onChange={e => { setFilterSectionId(e.target.value); setPage(1); setTimeout(() => loadStudents(searchQuery), 0); }}>
+                  value={filterSectionId} onChange={e => { setFilterSectionId(e.target.value); setPage(1); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                   <option value="">الكل</option>
                   {sectionOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
@@ -1519,7 +1592,7 @@ export const StudentsPage = () => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.75rem' }}>الدورة</label>
                 <select className="glass-input" style={{ fontSize: '0.82rem' }}
-                  value={filterCourseId} onChange={e => { setFilterCourseId(e.target.value); setPage(1); setTimeout(() => loadStudents(searchQuery), 0); }}>
+                  value={filterCourseId} onChange={e => { setFilterCourseId(e.target.value); setPage(1); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                   <option value="">الكل</option>
                   {courseOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -1527,7 +1600,7 @@ export const StudentsPage = () => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.75rem' }}>الدبلوم</label>
                 <select className="glass-input" style={{ fontSize: '0.82rem' }}
-                  value={filterDiplomaId} onChange={e => { setFilterDiplomaId(e.target.value); setPage(1); setTimeout(() => loadStudents(searchQuery), 0); }}>
+                  value={filterDiplomaId} onChange={e => { setFilterDiplomaId(e.target.value); setPage(1); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                   <option value="">الكل</option>
                   {diplomaOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -1535,7 +1608,7 @@ export const StudentsPage = () => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.75rem' }}>الموظف المسجل</label>
                 <select className="glass-input" style={{ fontSize: '0.82rem' }}
-                  value={filterMarkerEmployeeId} onChange={e => { setFilterMarkerEmployeeId(e.target.value); setPage(1); setTimeout(() => loadStudents(searchQuery), 0); }}>
+                  value={filterMarkerEmployeeId} onChange={e => { setFilterMarkerEmployeeId(e.target.value); setPage(1); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                   <option value="">الكل</option>
                   {empOptions.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
                 </select>
@@ -1543,7 +1616,7 @@ export const StudentsPage = () => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.75rem' }}>نتيجة العلامات</label>
                 <select className="glass-input" style={{ fontSize: '0.82rem' }}
-                  value={filterGradeResult} onChange={e => { setFilterGradeResult(e.target.value); setPage(1); setTimeout(() => loadStudents(searchQuery), 0); }}>
+                  value={filterGradeResult} onChange={e => { setFilterGradeResult(e.target.value); setPage(1); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                   <option value="">الكل</option>
                   <option value="PASS">ناجح</option>
                   <option value="FAIL">راسب</option>
@@ -1553,7 +1626,7 @@ export const StudentsPage = () => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.75rem' }}>حالة الدفع</label>
                 <select className="glass-input" style={{ fontSize: '0.82rem' }}
-                  value={filterPaymentStatus} onChange={e => { setFilterPaymentStatus(e.target.value); setPage(1); setTimeout(() => loadStudents(searchQuery), 0); }}>
+                  value={filterPaymentStatus} onChange={e => { setFilterPaymentStatus(e.target.value); setPage(1); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
                   <option value="">الكل</option>
                   <option value="PAID">مسدد</option>
                   <option value="PARTIAL">دفع جزئي</option>

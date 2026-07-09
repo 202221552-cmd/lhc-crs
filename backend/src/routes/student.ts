@@ -52,6 +52,7 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
       nameAr, nameEn, highSchoolPassed,
       sectionId, courseId, diplomaId, markerEmployeeId,
       supervisorEmployeeId, registeredByUserId, noSubscriptions,
+      noCourseSubscriptions, noDiplomaSubscriptions,
       teamLeaderUserId, gradeResult, paymentStatus,
       page, limit
     } = req.query;
@@ -119,6 +120,12 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
     if (registeredByUserId) where.AND.push({ registeredByUserId: parseInt(registeredByUserId as string) });
     if (noSubscriptions === 'true') {
       where.AND.push({ courseSubscriptions: { none: {} }, diplomaSubscriptions: { none: {} } });
+    }
+    if (noCourseSubscriptions === 'true') {
+      where.AND.push({ courseSubscriptions: { none: {} } });
+    }
+    if (noDiplomaSubscriptions === 'true') {
+      where.AND.push({ diplomaSubscriptions: { none: {} } });
     }
     if (teamLeaderUserId) {
       const tlId = parseInt(teamLeaderUserId as string);
