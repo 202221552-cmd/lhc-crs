@@ -552,7 +552,12 @@ export const StudentsPage = () => {
 
   const loadStudents = useCallback(async (q = '', filters?: DeepSearchFilters) => {
     try {
-      let url = `/students?query=${encodeURIComponent(q)}&limit=300`;
+      // Use nameAr + nationalId for fast-path DB filtering, plus query for fuzzy fallback
+      let url = `/students?query=${encodeURIComponent(q)}&nameAr=${encodeURIComponent(q)}&limit=300`;
+      // Also search by nationalId if the query looks like a number/ID
+      if (q && /[\d\-]+/.test(q)) {
+        url += `&nationalId=${encodeURIComponent(q)}`;
+      }
       const f = filters || deepFilters;
       if (f.status) url += `&status=${f.status}`;
       if (f.studentType) url += `&studentType=${f.studentType}`;
@@ -597,12 +602,14 @@ export const StudentsPage = () => {
 
   const handleSearchInput = (q: string) => {
     setSearchQuery(q);
+    setPage(1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => loadStudents(q), 350);
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
+    setPage(1);
     loadStudents('');
     searchInputRef.current?.focus();
   };
