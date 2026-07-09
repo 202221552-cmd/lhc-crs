@@ -591,8 +591,39 @@ export const StudentsPage = () => {
     loadStudents(q);
   };
 
+  const isAdmin = user?.role === 'ADMIN' || hasPermission?.('ADMIN_ALL');
+  const isTeamLeader = user?.role === 'TEAM_LEADER';
+  const isSupervisor = user?.role === 'SUPERVISOR';
+  const isRegistrar = user?.role === 'REGISTRAR' || user?.role === 'EMPLOYEE';
+
   useEffect(() => {
-    apiFetch('/students/users/hierarchy').then(setHierarchy).catch(() => {});
+    apiFetch('/students/users/hierarchy').then(h => {
+      setHierarchy(h);
+      // Auto-set fixed filter values based on role
+      if (!isAdmin) {
+        if (!isTeamLeader) {
+          // Non-admin, non-team-leader: tl is fixed
+          if (h.teamLeaders?.length === 1 && !filterTeamLeaderUserId) {
+            setFilterTeamLeaderUserId(String(h.teamLeaders[0].id));
+          }
+          if (isRegistrar) {
+            // Registrar: supervisor + registrar are fixed
+            if (h.supervisors?.length === 1 && !filterSupervisorEmployeeId) {
+              if (h.supervisors[0].employeeId) setFilterSupervisorEmployeeId(String(h.supervisors[0].employeeId));
+            }
+            if (h.registrars?.length === 1 && !filterRegisteredByUserId) {
+              setFilterRegisteredByUserId(String(h.registrars[0].id));
+            }
+          } else if (isSupervisor) {
+            // Supervisor: registrar is not fixed, but supervisor self is fixed
+            if (h.supervisors?.length === 1 && !filterSupervisorEmployeeId) {
+              if (h.supervisors[0].employeeId) setFilterSupervisorEmployeeId(String(h.supervisors[0].employeeId));
+            }
+          }
+        }
+        // isTeamLeader: nothing auto-set, they pick
+      }
+    }).catch(() => {});
   }, []);
 
   const applyFilter = () => { loadStudents(searchQuery); };
@@ -1292,7 +1323,7 @@ export const StudentsPage = () => {
             </div>
           </div>
 
-          {/* قائد الفريق — select team leader, cascades to supervisors + registrars */}
+          {/* قائد الفريق — ثابت لغير المدير, متغير للمدير */}
           <div className={`stat-card amber ${filterTeamLeaderUserId ? 'active-filter' : ''}`}
             style={{
               flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
@@ -1308,20 +1339,26 @@ export const StudentsPage = () => {
                 <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>قائد الفريق</div>
               </div>
             </div>
-            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
-              value={filterTeamLeaderUserId}
-              onChange={e => {
-                setFilterTeamLeaderUserId(e.target.value);
-                setTimeout(() => loadStudents(searchQuery), 0);
-              }}>
-              <option value="">الكل</option>
-              {hierarchy.teamLeaders.map(tl => (
-                <option key={tl.id} value={tl.id}>{tl.fullName}</option>
-              ))}
-            </select>
+            {!isAdmin ? (
+              <div style={{ width: '100%', fontSize: '0.82rem', padding: '4px 8px', opacity: 0.9, fontWeight: 600 }}>
+                {hierarchy.teamLeaders[0]?.fullName || '—'}
+              </div>
+            ) : (
+              <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+                value={filterTeamLeaderUserId}
+                onChange={e => {
+                  setFilterTeamLeaderUserId(e.target.value);
+                  setTimeout(() => loadStudents(searchQuery), 0);
+                }}>
+                <option value="">الكل</option>
+                {hierarchy.teamLeaders.map(tl => (
+                  <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                ))}
+              </select>
+            )}
           </div>
 
-          {/* المشرف — select supervisor, shows their direct registrars */}
+          {/* المشرف — ثابت للمشرفين والمسجلين, متغير للمدير وقائد الفريق */}
           <div className={`stat-card purple ${filterSupervisorEmployeeId ? 'active-filter' : ''}`}
             style={{
               flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
@@ -1337,20 +1374,26 @@ export const StudentsPage = () => {
                 <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>المشرف</div>
               </div>
             </div>
-            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
-              value={filterSupervisorEmployeeId}
-              onChange={e => {
-                setFilterSupervisorEmployeeId(e.target.value);
-                setTimeout(() => loadStudents(searchQuery), 0);
-              }}>
-              <option value="">الكل</option>
-              {hierarchy.supervisors.filter(s => s.employeeId).map(sup => (
-                <option key={sup.id} value={sup.employeeId}>{sup.fullName}</option>
-              ))}
-            </select>
+            {!isAdmin && !isTeamLeader ? (
+              <div style={{ width: '100%', fontSize: '0.82rem', padding: '4px 8px', opacity: 0.9, fontWeight: 600 }}>
+                {hierarchy.supervisors[0]?.fullName || '—'}
+              </div>
+            ) : (
+              <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+                value={filterSupervisorEmployeeId}
+                onChange={e => {
+                  setFilterSupervisorEmployeeId(e.target.value);
+                  setTimeout(() => loadStudents(searchQuery), 0);
+                }}>
+                <option value="">الكل</option>
+                {hierarchy.supervisors.filter(s => s.employeeId).map(sup => (
+                  <option key={sup.id} value={sup.employeeId}>{sup.fullName}</option>
+                ))}
+              </select>
+            )}
           </div>
 
-          {/* المسجل — select registrar, shows their registered students */}
+          {/* المسجل — ثابت للمسجل فقط, متغير للمدير وقائد الفريق والمشرف */}
           <div className={`stat-card teal ${filterRegisteredByUserId ? 'active-filter' : ''}`}
             style={{
               flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
@@ -1366,18 +1409,24 @@ export const StudentsPage = () => {
                 <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>المسجل</div>
               </div>
             </div>
-            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
-              value={filterRegisteredByUserId}
-              onChange={e => {
-                setFilterRegisteredByUserId(e.target.value);
-                setFilterMarkerEmployeeId('');
-                setTimeout(() => loadStudents(searchQuery), 0);
-              }}>
-              <option value="">الكل</option>
-              {hierarchy.registrars.map(reg => (
-                <option key={reg.id} value={reg.id}>{reg.fullName}</option>
-              ))}
-            </select>
+            {isRegistrar ? (
+              <div style={{ width: '100%', fontSize: '0.82rem', padding: '4px 8px', opacity: 0.9, fontWeight: 600 }}>
+                {hierarchy.registrars[0]?.fullName || '—'}
+              </div>
+            ) : (
+              <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
+                value={filterRegisteredByUserId}
+                onChange={e => {
+                  setFilterRegisteredByUserId(e.target.value);
+                  setFilterMarkerEmployeeId('');
+                  setTimeout(() => loadStudents(searchQuery), 0);
+                }}>
+                <option value="">الكل</option>
+                {hierarchy.registrars.map(reg => (
+                  <option key={reg.id} value={reg.id}>{reg.fullName}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* غير مشترك */}
