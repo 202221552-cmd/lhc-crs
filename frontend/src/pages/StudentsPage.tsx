@@ -574,9 +574,9 @@ export const StudentsPage = () => {
       if (filterMarkerEmployeeId) url += `&markerEmployeeId=${filterMarkerEmployeeId}`;
       if (filterSupervisorEmployeeId) url += `&supervisorEmployeeId=${filterSupervisorEmployeeId}`;
       if (filterRegisteredByUserId) url += `&registeredByUserId=${filterRegisteredByUserId}`;
-      if (filterNoSubscriptionType === 'course') url += `&noCourseSubscriptions=true`;
-      else if (filterNoSubscriptionType === 'diploma') url += `&noDiplomaSubscriptions=true`;
-      else if (filterNoSubscriptionType === 'both') url += `&noSubscriptions=true`;
+      if (filterNoSubscriptionType === 'course') url += `&hasCourseSubscriptions=true`;
+      else if (filterNoSubscriptionType === 'diploma') url += `&hasDiplomaSubscriptions=true`;
+      else if (filterNoSubscriptionType === 'unsubscribed') url += `&noSubscriptions=true`;
       if (filterTeamLeaderUserId) url += `&teamLeaderUserId=${filterTeamLeaderUserId}`;
       if (filterStatus) url += `&status=${encodeURIComponent(filterStatus)}`;
       if (filterStudentType) url += `&studentType=${encodeURIComponent(filterStudentType)}`;
@@ -1441,7 +1441,7 @@ export const StudentsPage = () => {
             )}
           </div>
 
-          {/* غير مشترك — مع اختيار دورة / دبلوم / الكل */}
+          {/* نوع الاشتراك — دورة / دبلوم / غير مشترك */}
           <div className={`stat-card pink ${filterNoSubscriptionType ? 'active-filter' : ''}`}
             style={{
               flex: '0 0 auto', minWidth: 180, padding: '12px 16px',
@@ -1450,75 +1450,78 @@ export const StudentsPage = () => {
             }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <div className="stat-icon" style={{ marginBottom: 0, width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>
-                <XCircle size={16} />
+                <BookOpen size={16} />
               </div>
               <div style={{ flex: 1 }}>
-                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>{students.filter(s => !s.courseSubscriptions?.length && !s.diplomaSubscriptions?.length).length}</div>
-                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>غير مشترك</div>
+                <div className="stat-value" style={{ fontSize: '1rem', lineHeight: 1.2 }}>
+                  {filterNoSubscriptionType ? students.length : totalCount}
+                </div>
+                <div className="stat-label" style={{ marginBottom: 0, fontSize: '0.72rem' }}>الاشتراك</div>
               </div>
             </div>
-            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px', color: filterNoSubscriptionType ? 'var(--danger)' : undefined }}
+            <select className="glass-input" style={{ width: '100%', fontSize: '0.78rem', padding: '4px 8px' }}
               value={filterNoSubscriptionType}
               onChange={e => {
                 setFilterNoSubscriptionType(e.target.value);
                 setTimeout(() => loadStudentsRef.current(searchQuery), 0);
               }}>
               <option value="">الكل</option>
-              <option value="course">غير مشترك في دورات</option>
-              <option value="diploma">غير مشترك في دبلومات</option>
-              <option value="both">غير مشترك في الكل</option>
+              <option value="course">دورة</option>
+              <option value="diploma">دبلوم</option>
+              <option value="unsubscribed">غير مشترك</option>
             </select>
           </div>
         </div>
 
         {/* ===== STATUS CARDS ===== */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-          <div className="stat-card" style={{ flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 10 }}
-            onClick={() => { setFilterStatus(''); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>الكل</span>
-            <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{totalCount}</span>
-          </div>
           {[
+            { key: '', label: 'الكل', color: '' },
             { key: 'ACTIVE', label: 'نشط', color: 'var(--success)' },
             { key: 'POSTPONED', label: 'مؤجل', color: 'var(--accent)' },
             { key: 'WITHDRAWN', label: 'منسحب', color: 'var(--danger)' },
             { key: 'CANCELED', label: 'ملغي', color: 'var(--text-muted)' },
             { key: 'FINISHED', label: 'منتهي', color: 'var(--secondary)' },
           ].map(st => (
-            <div key={st.key} className="stat-card" style={{
-              flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8,
+            <div key={st.key || '__all__'} className="stat-card" style={{
+              flex: '0 0 auto', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10,
               cursor: 'pointer', borderRadius: 10,
-              border: filterStatus === st.key ? `2px solid ${st.color}` : undefined,
+              border: filterStatus === st.key ? `2px solid ${st.color || 'var(--primary)'}` : undefined,
+              background: filterStatus === st.key ? 'var(--primary-light)' : undefined,
+              transition: 'all 0.15s',
             }}
               onClick={() => { setFilterStatus(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: st.color }}>{st.label}</span>
-              <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{students.filter(s => s.status === st.key).length}</span>
+              {st.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: st.color, flexShrink: 0 }} />}
+              <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{st.label}</span>
+              <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>
+                {st.key ? students.filter(s => s.status === st.key).length : totalCount}
+              </span>
             </div>
           ))}
         </div>
 
         {/* ===== STUDENT TYPE CARDS ===== */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          <div className="stat-card" style={{ flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 10 }}
-            onClick={() => { setFilterStudentType(''); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>الكل</span>
-            <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{totalCount}</span>
-          </div>
           {[
+            { key: '', label: 'الكل', icon: '📋' },
             { key: 'UNIVERSITY', label: 'جامعي', icon: '🎓' },
             { key: 'HIGH_SCHOOL', label: 'ثانوي', icon: '📚' },
             { key: 'EMPLOYEE', label: 'موظف', icon: '💼' },
             { key: 'OTHER', label: 'أخرى', icon: '📋' },
           ].map(st => (
-            <div key={st.key} className="stat-card" style={{
-              flex: '0 0 auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8,
+            <div key={st.key || '__all__'} className="stat-card" style={{
+              flex: '0 0 auto', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10,
               cursor: 'pointer', borderRadius: 10,
               border: filterStudentType === st.key ? '2px solid var(--primary)' : undefined,
+              background: filterStudentType === st.key ? 'var(--primary-light)' : undefined,
+              transition: 'all 0.15s',
             }}
               onClick={() => { setFilterStudentType(st.key); setTimeout(() => loadStudentsRef.current(searchQuery), 0); }}>
-              <span style={{ fontSize: '0.82rem' }}>{st.icon}</span>
-              <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{st.label}</span>
-              <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{students.filter(s => s.studentType === st.key).length}</span>
+              <span style={{ fontSize: '0.9rem' }}>{st.icon}</span>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{st.label}</span>
+              <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>
+                {st.key ? students.filter(s => s.studentType === st.key).length : totalCount}
+              </span>
             </div>
           ))}
         </div>
