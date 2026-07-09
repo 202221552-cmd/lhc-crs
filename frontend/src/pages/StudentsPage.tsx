@@ -413,6 +413,8 @@ export const StudentsPage = () => {
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [hierarchy, setHierarchy] = useState<{ teamLeaders: any[]; supervisors: any[]; registrars: any[] }>({ teamLeaders: [], supervisors: [], registrars: [] });
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Filter dropdown options
   const [empOptions, setEmpOptions] = useState<{ id: number; fullName: string }[]>([]);
@@ -593,9 +595,16 @@ export const StudentsPage = () => {
     }
   }, [deepFilters, filterSectionId, filterCourseId, filterDiplomaId, filterMarkerEmployeeId, filterSupervisorEmployeeId, filterRegisteredByUserId, filterNoSubscriptionType, filterTeamLeaderUserId, filterStatus, filterStudentType, filterGradeResult, filterPaymentStatus]);
 
-  const handleSearch = (q: string) => {
+  const handleSearchInput = (q: string) => {
     setSearchQuery(q);
-    loadStudents(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => loadStudents(q), 350);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    loadStudents('');
+    searchInputRef.current?.focus();
   };
 
   const isAdmin = user?.role === 'ADMIN' || hasPermission?.('ADMIN_ALL');
@@ -1412,7 +1421,21 @@ export const StudentsPage = () => {
           </h3>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Search Button */}
+            {/* Simple Search */}
+            <div style={{ position: 'relative', width: 220 }}>
+              <Search size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none', zIndex: 1 }} />
+              <input ref={searchInputRef} type="text" className="glass-input" dir="auto"
+                style={{ paddingRight: 32, paddingLeft: searchQuery ? 28 : 10, fontSize: '0.82rem', width: '100%', height: 34 }}
+                placeholder="بحث: اسم، هاتف، رقم وطني..."
+                value={searchQuery} onChange={e => handleSearchInput(e.target.value)} />
+              {searchQuery && (
+                <button onClick={handleClearSearch}
+                  style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            {/* Deep Search Button */}
             <button
               className="glass-btn icon-btn"
               onClick={() => setIsDeepSearchOpen(true)}
