@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search, Save, RefreshCw, Users, Trash2, Plus, Filter,
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Phone, Building2, Hash, CheckSquare, X, BookOpen, Clock, GraduationCap, User,
-  Shield, ShieldOff
+  Shield, ShieldOff, XCircle
 } from 'lucide-react';
 import { useApi, useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
@@ -43,7 +43,12 @@ interface Student {
   highSchoolPassed: boolean;
   status: 'ACTIVE' | 'POSTPONED' | 'WITHDRAWN' | 'CANCELED' | 'FINISHED';
   markerEmployeeId?: number;
+  supervisorEmployeeId?: number;
+  registeredByUserId?: number;
   marketerName?: string;
+  markerEmployee?: { id: number; fullName: string };
+  supervisorEmployee?: { id: number; fullName: string };
+  registeredByUser?: { id: number; fullName: string; points?: number };
   notes?: string;
   registrationDate?: string;
   diplomaSubscriptions?: any[];
@@ -397,9 +402,15 @@ export const StudentsPage = () => {
   const [filterCourseId, setFilterCourseId] = useState('');
   const [filterDiplomaId, setFilterDiplomaId] = useState('');
   const [filterMarkerEmployeeId, setFilterMarkerEmployeeId] = useState('');
+  const [filterSupervisorEmployeeId, setFilterSupervisorEmployeeId] = useState('');
+  const [filterRegisteredByUserId, setFilterRegisteredByUserId] = useState('');
+  const [filterNoSubscriptions, setFilterNoSubscriptions] = useState(false);
   const [filterGradeResult, setFilterGradeResult] = useState('');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [activeRoleFilter, setActiveRoleFilter] = useState<string | null>(null); // 'registrar' | 'supervisor' | 'teamleader' | 'unsubscribed'
+  const [showRegistrarDropdown, setShowRegistrarDropdown] = useState(false);
+  const [showSupervisorDropdown, setShowSupervisorDropdown] = useState(false);
 
   // Filter dropdown options
   const [empOptions, setEmpOptions] = useState<{ id: number; fullName: string }[]>([]);
@@ -559,6 +570,9 @@ export const StudentsPage = () => {
       if (filterCourseId) url += `&courseId=${filterCourseId}`;
       if (filterDiplomaId) url += `&diplomaId=${filterDiplomaId}`;
       if (filterMarkerEmployeeId) url += `&markerEmployeeId=${filterMarkerEmployeeId}`;
+      if (filterSupervisorEmployeeId) url += `&supervisorEmployeeId=${filterSupervisorEmployeeId}`;
+      if (filterRegisteredByUserId) url += `&registeredByUserId=${filterRegisteredByUserId}`;
+      if (filterNoSubscriptions) url += `&noSubscriptions=true`;
       if (filterGradeResult) url += `&gradeResult=${encodeURIComponent(filterGradeResult)}`;
       if (filterPaymentStatus) url += `&paymentStatus=${encodeURIComponent(filterPaymentStatus)}`;
 
@@ -570,7 +584,7 @@ export const StudentsPage = () => {
     } catch (err: any) {
       toast.error('خطأ في تحميل البيانات', err.message);
     }
-  }, [deepFilters, filterSectionId, filterCourseId, filterDiplomaId, filterMarkerEmployeeId, filterGradeResult, filterPaymentStatus]);
+  }, [deepFilters, filterSectionId, filterCourseId, filterDiplomaId, filterMarkerEmployeeId, filterSupervisorEmployeeId, filterRegisteredByUserId, filterNoSubscriptions, filterGradeResult, filterPaymentStatus]);
 
   const handleSearch = (q: string) => {
     setSearchQuery(q);
@@ -584,6 +598,10 @@ export const StudentsPage = () => {
     setFilterCourseId('');
     setFilterDiplomaId('');
     setFilterMarkerEmployeeId('');
+    setFilterSupervisorEmployeeId('');
+    setFilterRegisteredByUserId('');
+    setFilterNoSubscriptions(false);
+    setActiveRoleFilter(null);
     setFilterGradeResult('');
     setFilterPaymentStatus('');
     setTimeout(() => loadStudents(searchQuery), 0);
@@ -843,6 +861,31 @@ export const StudentsPage = () => {
             </span>
           )}
         </div>
+
+        {/* Staff info when editing */}
+        {selectedStudent?.id && (
+          <div style={{
+            display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16,
+            padding: '10px 14px', borderRadius: 10, background: 'var(--primary-light)',
+            fontSize: '0.82rem',
+          }}>
+            {selectedStudent.registeredByUser?.fullName && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <User size={14} /> المسجل: {selectedStudent.registeredByUser.fullName}
+              </span>
+            )}
+            {selectedStudent.supervisorEmployee?.fullName && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Shield size={14} /> المشرف: {selectedStudent.supervisorEmployee.fullName}
+              </span>
+            )}
+            {selectedStudent.markerEmployee?.fullName && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Users size={14} /> المسوق: {selectedStudent.markerEmployee.fullName}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Row 1: Full name Arabic (full width) */}
         <div className="form-group" style={{ marginBottom: 14 }}>
@@ -1223,56 +1266,107 @@ export const StudentsPage = () => {
       <div className="glass-panel split-panel" style={{ flex: 1, minWidth: 0, borderRadius: 'var(--radius-lg) 0 0 var(--radius-lg)', margin: 0 }}>
         {/* ===== STATS CARDS ===== */}
         <div style={{
-          display: 'flex', gap: 12, marginBottom: 20,
+          display: 'flex', gap: 10, marginBottom: 20,
           flexWrap: 'wrap',
         }}>
-          <div className="stat-card blue" style={{ flex: '0 0 auto', minWidth: 160, display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 44, height: 44, borderRadius: 12, flexShrink: 0 }}>
-              <Users size={20} />
+          <div className="stat-card blue" style={{ flex: '0 0 auto', minWidth: 140, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
+              <Users size={18} />
             </div>
             <div>
-              <div className="stat-value" style={{ fontSize: '1.4rem' }}>{totalCount}</div>
+              <div className="stat-value" style={{ fontSize: '1.3rem' }}>{totalCount}</div>
               <div className="stat-label" style={{ marginBottom: 0 }}>إجمالي الطلاب</div>
             </div>
           </div>
-          <div className="stat-card green" style={{ flex: '0 0 auto', minWidth: 120, display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 44, height: 44, borderRadius: 12, flexShrink: 0 }}>
-              <CheckSquare size={20} />
+          <div className="stat-card green" style={{ flex: '0 0 auto', minWidth: 110, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
+              <CheckSquare size={18} />
             </div>
             <div>
-              <div className="stat-value" style={{ fontSize: '1.4rem', color: 'var(--success)' }}>{students.filter(s => s.status === 'ACTIVE').length}</div>
+              <div className="stat-value" style={{ fontSize: '1.3rem', color: 'var(--success)' }}>{students.filter(s => s.status === 'ACTIVE').length}</div>
               <div className="stat-label" style={{ marginBottom: 0 }}>نشط</div>
             </div>
           </div>
-          <div className="stat-card amber" style={{ flex: '0 0 auto', minWidth: 140, display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 44, height: 44, borderRadius: 12, flexShrink: 0 }}>
-              <Users size={20} />
-            </div>
-            <div>
-              <div className="stat-value" style={{ fontSize: '1.4rem', color: 'var(--accent)' }}>{students.filter(s => s.status === 'POSTPONED' || s.status === 'WITHDRAWN').length}</div>
-              <div className="stat-label" style={{ marginBottom: 0 }}>منسحب/مؤجل</div>
-            </div>
-          </div>
-          <div className="stat-card purple" style={{ flex: '0 0 auto', minWidth: 120, display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
-            <div className="stat-icon" style={{ marginBottom: 0, width: 44, height: 44, borderRadius: 12, flexShrink: 0 }}>
-              <GraduationCap size={20} />
-            </div>
-            <div>
-              <div className="stat-value" style={{ fontSize: '1.4rem', color: 'var(--secondary)' }}>{students.filter(s => s.status === 'FINISHED').length}</div>
-              <div className="stat-label" style={{ marginBottom: 0 }}>منتهي</div>
-            </div>
-          </div>
-          {user?.fullName && (
-            <div className="stat-card teal" style={{ flex: 1, minWidth: 180, display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
-              <div className="stat-icon" style={{ marginBottom: 0, width: 44, height: 44, borderRadius: 12, flexShrink: 0 }}>
-                <User size={20} />
+          {/* المسجل — students registered by current user */}
+          {user?.id && (
+            <div className={`stat-card teal ${activeRoleFilter === 'registrar' ? 'active-filter' : ''}`}
+              onClick={() => {
+                if (activeRoleFilter === 'registrar') {
+                  setFilterRegisteredByUserId(''); setFilterNoSubscriptions(false); setActiveRoleFilter(null);
+                } else {
+                  setFilterRegisteredByUserId(String(user.id)); setFilterMarkerEmployeeId(''); setFilterSupervisorEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter('registrar');
+                }
+                setTimeout(() => loadStudents(searchQuery), 0);
+              }}
+              style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: activeRoleFilter === 'registrar' ? '2px solid var(--primary)' : undefined }}>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
+                <User size={18} />
               </div>
               <div>
-                <div className="stat-value" style={{ fontSize: '0.95rem' }}>{user.fullName}</div>
-                <div className="stat-label" style={{ marginBottom: 0 }}>المشرف / المسجل</div>
+                <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.filter(s => s.registeredByUserId === Number(user.id) || s.markerEmployeeId === Number(user.employeeId)).length}</div>
+                <div className="stat-label" style={{ marginBottom: 0 }}>المسجل لدي</div>
               </div>
             </div>
           )}
+          {/* المشرف — students supervised by me */}
+          {user?.employeeId && (
+            <div className={`stat-card purple ${activeRoleFilter === 'supervisor' ? 'active-filter' : ''}`}
+              onClick={() => {
+                if (activeRoleFilter === 'supervisor') {
+                  setFilterSupervisorEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter(null);
+                } else {
+                  setFilterSupervisorEmployeeId(String(user.employeeId)); setFilterRegisteredByUserId(''); setFilterMarkerEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter('supervisor');
+                }
+                setTimeout(() => loadStudents(searchQuery), 0);
+              }}
+              style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: activeRoleFilter === 'supervisor' ? '2px solid var(--primary)' : undefined }}>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
+                <Shield size={18} />
+              </div>
+              <div>
+                <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.filter(s => s.supervisorEmployeeId === Number(user.employeeId)).length}</div>
+                <div className="stat-label" style={{ marginBottom: 0 }}>المشرف عليهم</div>
+              </div>
+            </div>
+          )}
+          {/* قائد الفريق — students under my team */}
+          {user?.teamLeaderId && (
+            <div className={`stat-card amber ${activeRoleFilter === 'teamleader' ? 'active-filter' : ''}`}
+              onClick={() => {
+                if (activeRoleFilter === 'teamleader') {
+                  setFilterRegisteredByUserId(''); setFilterNoSubscriptions(false); setActiveRoleFilter(null);
+                } else {
+                  setFilterRegisteredByUserId(''); setFilterMarkerEmployeeId(''); setFilterSupervisorEmployeeId(''); setFilterNoSubscriptions(false); setActiveRoleFilter('teamleader');
+                }
+                setTimeout(() => loadStudents(searchQuery), 0);
+              }}
+              style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: activeRoleFilter === 'teamleader' ? '2px solid var(--primary)' : undefined }}>
+              <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
+                <Users size={18} />
+              </div>
+              <div>
+                <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.length}</div>
+                <div className="stat-label" style={{ marginBottom: 0 }}>فريقي</div>
+              </div>
+            </div>
+          )}
+          {/* غير مشترك */}
+          <div className={`stat-card pink ${filterNoSubscriptions ? 'active-filter' : ''}`}
+            onClick={() => {
+              setFilterNoSubscriptions(!filterNoSubscriptions);
+              setFilterRegisteredByUserId(''); setFilterMarkerEmployeeId(''); setFilterSupervisorEmployeeId('');
+              setActiveRoleFilter(null);
+              setTimeout(() => loadStudents(searchQuery), 0);
+            }}
+            style={{ flex: '0 0 auto', minWidth: 130, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer', transition: 'all 0.2s', border: filterNoSubscriptions ? '2px solid var(--danger)' : undefined }}>
+            <div className="stat-icon" style={{ marginBottom: 0, width: 40, height: 40, borderRadius: 12, flexShrink: 0 }}>
+              <XCircle size={18} />
+            </div>
+            <div>
+              <div className="stat-value" style={{ fontSize: '1.1rem' }}>{students.filter(s => !s.courseSubscriptions?.length && !s.diplomaSubscriptions?.length).length}</div>
+              <div className="stat-label" style={{ marginBottom: 0 }}>غير مشترك</div>
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>

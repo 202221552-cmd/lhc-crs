@@ -51,6 +51,7 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
       universityName, systemId, nationalId,
       nameAr, nameEn, highSchoolPassed,
       sectionId, courseId, diplomaId, markerEmployeeId,
+      supervisorEmployeeId, registeredByUserId, noSubscriptions,
       gradeResult, paymentStatus,
       page, limit
     } = req.query;
@@ -114,6 +115,11 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
       where.AND.push({ highSchoolPassed: highSchoolPassed === 'true' });
     }
     if (markerEmployeeId) where.AND.push({ markerEmployeeId: parseInt(markerEmployeeId as string) });
+    if (supervisorEmployeeId) where.AND.push({ supervisorEmployeeId: parseInt(supervisorEmployeeId as string) });
+    if (registeredByUserId) where.AND.push({ registeredByUserId: parseInt(registeredByUserId as string) });
+    if (noSubscriptions === 'true') {
+      where.AND.push({ courseSubscriptions: { none: {} }, diplomaSubscriptions: { none: {} } });
+    }
     if (universityName) where.AND.push({ universityName: { contains: String(universityName).trim() } });
     if (systemId) where.AND.push({ id: { contains: String(systemId).trim() } });
     if (nationalId) {
@@ -201,6 +207,7 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
         where,
         include: {
           markerEmployee: { select: { id: true, fullName: true } },
+          supervisorEmployee: { select: { id: true, fullName: true } },
           registeredByUser: { select: { id: true, fullName: true, points: true } },
           sections: {
             select: {
@@ -254,6 +261,7 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
         where,
         include: {
           markerEmployee: { select: { id: true, fullName: true } },
+          supervisorEmployee: { select: { id: true, fullName: true } },
           registeredByUser: { select: { id: true, fullName: true, points: true } },
           sections: {
             select: {
@@ -374,6 +382,9 @@ router.get('/:id', authMiddleware, selfOrPerm('students.view'), async (req, res)
     const student = await prisma.student.findUnique({
       where: { id: (req.params.id as string) },
       include: {
+        markerEmployee: { select: { id: true, fullName: true } },
+        supervisorEmployee: { select: { id: true, fullName: true } },
+        registeredByUser: { select: { id: true, fullName: true, points: true } },
         diplomaSubscriptions: { include: { diploma: true, entity: true } },
         courseSubscriptions: { include: { course: true, entity: true } },
         sections: { include: { section: { include: { course: true, room: true, instructor: true } } } },
