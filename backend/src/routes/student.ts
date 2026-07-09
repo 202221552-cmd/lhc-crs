@@ -397,6 +397,78 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
+// GET user hierarchy for student stat cards
+// ==========================================
+router.get('/users/hierarchy', authMiddleware, requirePermission('students.view'), async (req, res) => {
+  const authUser = (req as any).user;
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.permissions?.some((p: any) => p.permission?.name === 'ADMIN_ALL');
+
+  let teamLeaders: any[] = [];
+  let supervisors: any[] = [];
+  let registrars: any[] = [];
+
+  if (isAdmin) {
+    teamLeaders = await prisma.user.findMany({
+      where: { role: 'TEAM_LEADER', status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true }
+    });
+    supervisors = await prisma.user.findMany({
+      where: { role: 'SUPERVISOR', status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+    registrars = await prisma.user.findMany({
+      where: { role: { in: ['REGISTRAR', 'EMPLOYEE'] }, status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+  } else if (authUser.role === 'TEAM_LEADER') {
+    const tlResult = await prisma.user.findUnique({
+      where: { id: authUser.id },
+      select: { id: true, fullName: true, role: true }
+    });
+    if (tlResult) teamLeaders = [tlResult];
+    const members = await prisma.user.findMany({
+      where: { teamLeaderId: authUser.id, status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+    supervisors = members.filter(u => u.role === 'SUPERVISOR');
+    registrars = members.filter(u => u.role === 'REGISTRAR' || u.role === 'EMPLOYEE');
+  } else if (authUser.role === 'SUPERVISOR') {
+    if (authUser.teamLeaderId) {
+      const tl = await prisma.user.findUnique({
+        where: { id: authUser.teamLeaderId },
+        select: { id: true, fullName: true, role: true }
+      });
+      if (tl) teamLeaders = [tl];
+    }
+    const self = { id: authUser.id, fullName: authUser.fullName, role: authUser.role, supervisorId: authUser.supervisorId, teamLeaderId: authUser.teamLeaderId, employeeId: authUser.employeeId };
+    supervisors = [self];
+    const subordinates = await prisma.user.findMany({
+      where: { supervisorId: authUser.id, status: 'ACTIVE' },
+      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+    });
+    registrars = subordinates.filter(u => u.role === 'REGISTRAR' || u.role === 'EMPLOYEE');
+  } else if (authUser.role === 'REGISTRAR' || authUser.role === 'EMPLOYEE') {
+    if (authUser.teamLeaderId) {
+      const tl = await prisma.user.findUnique({
+        where: { id: authUser.teamLeaderId },
+        select: { id: true, fullName: true, role: true }
+      });
+      if (tl) teamLeaders = [tl];
+    }
+    if (authUser.supervisorId) {
+      const sup = await prisma.user.findUnique({
+        where: { id: authUser.supervisorId },
+        select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
+      });
+      if (sup) supervisors = [sup];
+    }
+    registrars = [{ id: authUser.id, fullName: authUser.fullName, role: authUser.role, supervisorId: authUser.supervisorId, teamLeaderId: authUser.teamLeaderId, employeeId: authUser.employeeId }];
+  }
+
+  res.json({ teamLeaders, supervisors, registrars });
+});
+
+// ==========================================
 // GET ONE
 // ==========================================
 router.get('/:id', authMiddleware, selfOrPerm('students.view'), async (req, res) => {
@@ -848,75 +920,6 @@ router.get('/:id/available-sections', authMiddleware, requirePermission('student
 // ==========================================
 // GET user hierarchy for student stat cards
 // ==========================================
-router.get('/users/hierarchy', authMiddleware, requirePermission('students.view'), async (req, res) => {
-  const authUser = (req as any).user;
-  const isAdmin = authUser?.role === 'ADMIN' || authUser?.permissions?.some((p: any) => p.permission?.name === 'ADMIN_ALL');
-
-  let teamLeaders: any[] = [];
-  let supervisors: any[] = [];
-  let registrars: any[] = [];
-
-  if (isAdmin) {
-    teamLeaders = await prisma.user.findMany({
-      where: { role: 'TEAM_LEADER', status: 'ACTIVE' },
-      select: { id: true, fullName: true, role: true }
-    });
-    supervisors = await prisma.user.findMany({
-      where: { role: 'SUPERVISOR', status: 'ACTIVE' },
-      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
-    });
-    registrars = await prisma.user.findMany({
-      where: { role: { in: ['REGISTRAR', 'EMPLOYEE'] }, status: 'ACTIVE' },
-      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
-    });
-  } else if (authUser.role === 'TEAM_LEADER') {
-    const tlResult = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: { id: true, fullName: true, role: true }
-    });
-    if (tlResult) teamLeaders = [tlResult];
-    const members = await prisma.user.findMany({
-      where: { teamLeaderId: authUser.id, status: 'ACTIVE' },
-      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
-    });
-    supervisors = members.filter(u => u.role === 'SUPERVISOR');
-    registrars = members.filter(u => u.role === 'REGISTRAR' || u.role === 'EMPLOYEE');
-  } else if (authUser.role === 'SUPERVISOR') {
-    if (authUser.teamLeaderId) {
-      const tl = await prisma.user.findUnique({
-        where: { id: authUser.teamLeaderId },
-        select: { id: true, fullName: true, role: true }
-      });
-      if (tl) teamLeaders = [tl];
-    }
-    const self = { id: authUser.id, fullName: authUser.fullName, role: authUser.role, supervisorId: authUser.supervisorId, teamLeaderId: authUser.teamLeaderId, employeeId: authUser.employeeId };
-    supervisors = [self];
-    const subordinates = await prisma.user.findMany({
-      where: { supervisorId: authUser.id, status: 'ACTIVE' },
-      select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
-    });
-    registrars = subordinates.filter(u => u.role === 'REGISTRAR' || u.role === 'EMPLOYEE');
-  } else if (authUser.role === 'REGISTRAR' || authUser.role === 'EMPLOYEE') {
-    if (authUser.teamLeaderId) {
-      const tl = await prisma.user.findUnique({
-        where: { id: authUser.teamLeaderId },
-        select: { id: true, fullName: true, role: true }
-      });
-      if (tl) teamLeaders = [tl];
-    }
-    if (authUser.supervisorId) {
-      const sup = await prisma.user.findUnique({
-        where: { id: authUser.supervisorId },
-        select: { id: true, fullName: true, role: true, supervisorId: true, teamLeaderId: true, employeeId: true }
-      });
-      if (sup) supervisors = [sup];
-    }
-    registrars = [{ id: authUser.id, fullName: authUser.fullName, role: authUser.role, supervisorId: authUser.supervisorId, teamLeaderId: authUser.teamLeaderId, employeeId: authUser.employeeId }];
-  }
-
-  res.json({ teamLeaders, supervisors, registrars });
-});
-
 function safeParseJSON(str: string, fallback: any) {
   try { return JSON.parse(str); } catch { return fallback; }
 }
