@@ -70,6 +70,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// ===== Role-based portal guard =====
+const PortalRoute = ({ children, portal }: { children: React.ReactNode; portal: string }) => {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  const portals = (user.portals || []).map(p => p.toUpperCase());
+  if (!portals.includes(portal.toUpperCase())) {
+    return <Navigate to="/portal" replace />;
+  }
+  return <>{children}</>;
+};
+
 // ===== Role-based layout guard =====
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
@@ -131,10 +143,10 @@ const AppRoutes = () => {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
 
       {/* Portals — standalone (no sidebar) */}
-      <Route path="/employee-portal" element={<ProtectedRoute><EmployeePortalPage /></ProtectedRoute>} />
+      <Route path="/employee-portal" element={<PortalRoute portal="EMPLOYEE"><EmployeePortalPage /></PortalRoute>} />
       <Route path="/portal" element={<ProtectedRoute><PortalSelectorPage /></ProtectedRoute>} />
-      <Route path="/student-portal" element={<ProtectedRoute><StudentPortalPage /></ProtectedRoute>} />
-      <Route path="/instructor-portal" element={<ProtectedRoute><InstructorPortalPage /></ProtectedRoute>} />
+      <Route path="/student-portal" element={<PortalRoute portal="STUDENT"><StudentPortalPage /></PortalRoute>} />
+      <Route path="/instructor-portal" element={<PortalRoute portal="INSTRUCTOR"><InstructorPortalPage /></PortalRoute>} />
 
       {/* Protected admin layout */}
       <Route path="/" element={<AdminRoute><Layout /></AdminRoute>}>

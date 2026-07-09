@@ -40,7 +40,7 @@ const getDefaultPortals = (role: string): string[] => {
 
 // ==================== LOGIN ====================
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, portal } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'يرجى إدخال اسم المستخدم وكلمة المرور' });
   }
@@ -97,6 +97,20 @@ router.post('/login', async (req, res) => {
 
     if (user.status !== 'ACTIVE') {
       return res.status(403).json({ error: 'هذا الحساب معطّل. يرجى التواصل مع المسؤول.' });
+    }
+
+    // Portal access check — reject if user doesn't have this portal
+    if (portal) {
+      let userPortals: string[] = [];
+      try { userPortals = JSON.parse(user.portals || '[]'); } catch {}
+      if (!userPortals.map(p => p.toUpperCase()).includes(portal.toUpperCase())) {
+        const portalNames: Record<string, string> = {
+          ADMIN: 'بوابة الإدارة', EMPLOYEE: 'بوابة الموظفين',
+          INSTRUCTOR: 'بوابة المحاضرين', STUDENT: 'بوابة الطلاب',
+        };
+        const allowed = userPortals.map(p => portalNames[p] || p).join('، ') || 'بدون';
+        return res.status(403).json({ error: `لا يمكنك الدخول من ${portalNames[portal] || portal}. البوابات المصرح بها: ${allowed}` });
+      }
     }
 
     const deviceType = req.headers['user-agent'] || '';

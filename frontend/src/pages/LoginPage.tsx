@@ -250,18 +250,6 @@ const LoginForm = ({ portal, onBack }: { portal: Portal; onBack: () => void }) =
     setError(''); setLoading(true);
     try {
       const userData: any = await login(username.trim(), password, portal.key);
-      const userPortals = (userData?.portals || []).map((p: string) => p.toUpperCase());
-      if (!userPortals.includes(portal.key.toUpperCase())) {
-        await logout();
-        const portalNames: Record<string, string> = {
-          ADMIN: 'بوابة الإدارة', EMPLOYEE: 'بوابة الموظفين',
-          INSTRUCTOR: 'بوابة المحاضرين', STUDENT: 'بوابة الطلاب',
-        };
-        const allowed = userData?.portals?.map((p: string) => portalNames[p] || p).join('، ') || 'بدون';
-        setError(`لا يمكنك الدخول من ${portal.label}. البوابات المصرح بها: ${allowed}`);
-        triggerShake();
-        return;
-      }
     } catch (err: any) {
       setError(err.message || 'فشل تسجيل الدخول');
       triggerShake();
