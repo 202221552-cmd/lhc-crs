@@ -210,11 +210,11 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
     const section = await prisma.section.findUnique({
       where: { id: sectionId },
       include: { course: true }
-    });
+    }).catch(e => { console.error('step1 section.findUnique', e?.message, e?.code); throw e; });
     if (!section) return res.status(404).json({ error: 'الشعبة غير موجودة' });
     const enrolledCount = await prisma.studentSection.count({
       where: { sectionId: section.id, status: 'ENROLLED' }
-    });
+    }).catch(e => { console.error('step2 count', e?.message, e?.code); throw e; });
     if (enrolledCount >= section.capacity) {
       return res.status(400).json({ error: 'الشعبة ممتلئة' });
     }
@@ -223,7 +223,7 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
     const existingSections = await prisma.studentSection.findMany({
       where: { studentId, status: 'ENROLLED', section: { status: 'OPEN' } },
       include: { section: { include: { course: true } } }
-    });
+    }).catch(e => { console.error('step3 existingSections', e?.message, e?.code); throw e; });
     for (const es of existingSections) {
       if (daysOverlap(section.days, es.section.days) && checkOverlap(section.startTime, section.endTime, es.section.startTime, es.section.endTime)) {
         const courseName = es.section.course?.name || '';
@@ -248,7 +248,7 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
       const diplomaSubs = await prisma.diplomaSubscription.findMany({
         where: { studentId, diploma: { courses: { some: { courseId: section.courseId } } } },
         select: { id: true, diplomaId: true, minPaymentException: true }
-      });
+      }).catch(e => { console.error('step4 diplomaSubs', e?.message, e?.code); throw e; });
 
       let exempt = diplomaSubs.some(s => s.minPaymentException);
 
@@ -260,11 +260,11 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
           prisma.installment.aggregate({
             where: { studentId, subscriptionId: { in: dipSubIds }, status: 'PAID' },
             _sum: { amount: true }
-          }),
+          }).catch(e => { console.error('step5a installment.aggregate', e?.message, e?.code); throw e; }),
           prisma.diploma.findMany({
             where: { id: { in: diplomaIds }, courses: { some: { courseId: section.courseId } } },
             select: { id: true, minPayment: true }
-          }),
+          }).catch(e => { console.error('step5b diploma.findMany', e?.message, e?.code); throw e; }),
         ]);
         const totalPaid = diplomaPaid._sum.amount || 0;
         const diplomaMin = Math.max(...diplomas.map(d => d.minPayment), 0);
@@ -276,13 +276,13 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
         const courseSubs = await prisma.courseSubscription.findMany({
           where: { studentId, courseId: section.courseId, status: 'ACTIVE' },
         select: { id: true, diplomaId: true, minPaymentException: true }
-        });
+        }).catch(e => { console.error('step6 courseSubs', e?.message, e?.code); throw e; });
         const hasException = courseSubs.some(s => s.minPaymentException);
         if (!hasException) {
           const subIds = courseSubs.map(s => String(s.id));
           const paidInsts = await prisma.installment.findMany({
             where: { studentId, subscriptionId: { in: subIds }, subscriptionType: 'COURSE', status: 'PAID' }
-          });
+          }).catch(e => { console.error('step7 paidInsts', e?.message, e?.code); throw e; });
           const paid = paidInsts.reduce((sum, inst) => sum + inst.amount, 0);
           if (paid < minPayment) {
             return res.status(400).json({
@@ -297,19 +297,19 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
     // Check if student has existing record (e.g., TRANSFERRED) — reactivate instead of creating new
     const existingSS = await prisma.studentSection.findUnique({
       where: { studentId_sectionId: { studentId, sectionId } }
-    });
+    }).catch(e => { console.error('step8 findUnique', e?.message, e?.code); throw e; });
     let ss;
     if (existingSS) {
       ss = await prisma.studentSection.update({
         where: { studentId_sectionId: { studentId, sectionId } },
         data: { status: 'ENROLLED', enrollDate: new Date() },
         include: { student: true, section: { include: { course: true } } }
-      });
+      }).catch(e => { console.error('step9 update', e?.message, e?.code); throw e; });
     } else {
       ss = await prisma.studentSection.create({
         data: { studentId, sectionId },
         include: { student: true, section: { include: { course: true } } }
-      });
+      }).catch(e => { console.error('step10 create', e?.message, e?.code); throw e; });
     }
     res.json(ss);
   } catch (err: any) {
