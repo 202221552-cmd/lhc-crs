@@ -878,7 +878,7 @@ router.get('/:id/available-sections', authMiddleware, requirePermission('student
 
     res.json(result);
   } catch (e: any) {
-    console.error('available-sections error', e);
+    console.error('available-sections error', e?.message || e, e?.code, e?.meta);
     res.status(500).json({ error: 'خطأ في جلب الشعب المتاحة' });
   }
 });

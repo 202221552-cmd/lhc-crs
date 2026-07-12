@@ -311,6 +311,7 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
     }
     res.json(ss);
   } catch (err: any) {
+    console.error('POST /sections/:id/students error', err?.message || err, err?.code, err?.meta);
     if (err.code === 'P2002') return res.status(400).json({ error: 'الطالب مسجّل في هذه الشعبة مسبقاً' });
     res.status(400).json({ error: 'فشل إضافة الطالب للشعبة' });
   }
