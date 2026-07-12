@@ -275,7 +275,7 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
         // Only check course min payment for non-diploma or unexempt students
         const courseSubs = await prisma.courseSubscription.findMany({
           where: { studentId, courseId: section.courseId, status: 'ACTIVE' },
-        select: { id: true, diplomaId: true, minPaymentException: true }
+        select: { id: true, minPaymentException: true }
         }).catch(e => { console.error('step6 courseSubs', e?.message, e?.code); throw e; });
         const hasException = courseSubs.some(s => s.minPaymentException);
         if (!hasException) {
