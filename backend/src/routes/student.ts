@@ -222,12 +222,11 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
       }
     }
 
-    // Clean up empty AND
-    if (where.AND.length === 0) delete where.AND;
-
     // Simple query search — push to DB as OR across multiple fields
     if (query && typeof query === 'string' && query.trim()) {
       const q = normalizeNumbers(query.trim());
+      // Re-create AND if it was cleaned up
+      if (!where.AND) where.AND = [];
       where.AND.push({
         OR: [
           { fullNameAr: { contains: q } },
@@ -239,6 +238,9 @@ router.get('/', authMiddleware, requirePermission('students.view'), async (req, 
         ]
       });
     }
+
+    // Clean up empty AND
+    if (where.AND && where.AND.length === 0) delete where.AND;
 
     // Count total matching records (fast, with indexes)
     const total = await prisma.student.count({ where });
