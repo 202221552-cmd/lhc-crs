@@ -204,9 +204,11 @@ router.delete('/:id', authMiddleware, requirePermission('sections.manage'), asyn
 router.post('/:id/students', authMiddleware, requirePermission('sections.assign'), async (req, res) => {
   const { studentId } = req.body;
   if (!studentId) return res.status(400).json({ error: 'الطالب مطلوب' });
+  const sectionId = parseInt(req.params.id as string);
+  if (isNaN(sectionId)) return res.status(400).json({ error: 'معرف الشعبة غير صالح' });
   try {
     const section = await prisma.section.findUnique({
-      where: { id: parseInt(req.params.id as string) },
+      where: { id: sectionId },
       include: { course: true }
     });
     if (!section) return res.status(404).json({ error: 'الشعبة غير موجودة' });
@@ -294,18 +296,18 @@ router.post('/:id/students', authMiddleware, requirePermission('sections.assign'
 
     // Check if student has existing record (e.g., TRANSFERRED) — reactivate instead of creating new
     const existingSS = await prisma.studentSection.findUnique({
-      where: { studentId_sectionId: { studentId, sectionId: parseInt(req.params.id as string) } }
+      where: { studentId_sectionId: { studentId, sectionId } }
     });
     let ss;
     if (existingSS) {
       ss = await prisma.studentSection.update({
-        where: { studentId_sectionId: { studentId, sectionId: parseInt(req.params.id as string) } },
+        where: { studentId_sectionId: { studentId, sectionId } },
         data: { status: 'ENROLLED', enrollDate: new Date() },
         include: { student: true, section: { include: { course: true } } }
       });
     } else {
       ss = await prisma.studentSection.create({
-        data: { studentId, sectionId: parseInt(req.params.id as string) },
+        data: { studentId, sectionId },
         include: { student: true, section: { include: { course: true } } }
       });
     }
